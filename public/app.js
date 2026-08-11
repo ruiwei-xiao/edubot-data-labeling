@@ -20,8 +20,6 @@ const needsAttentionBtn = document.getElementById("needsAttentionBtn");
 const builderBtn = document.getElementById("builderBtn");
 const groupByBotBtn = document.getElementById("groupByBotBtn");
 const shortcutsBar = document.getElementById("shortcutsBar");
-const attentionToggle = document.getElementById("attentionToggle");
-const attentionLabel = document.getElementById("attentionLabel");
 const tabConversations = document.getElementById("tabConversations");
 const tabActivities = document.getElementById("tabActivities");
 
@@ -154,12 +152,12 @@ function setView(next) {
   shortcutsBar.style.display = view === "conversations" ? "" : "none";
   if (view !== "conversations") {
     groupByBot = false;
+    builderOnly = false;
+    needsAttention = false;
     groupByBotBtn.classList.remove("active");
+    builderBtn.classList.remove("active");
+    needsAttentionBtn.classList.remove("danger-active");
   }
-  attentionLabel.textContent =
-    view === "conversations"
-      ? "Jump to messages that need attention"
-      : "Jump to activities that need attention";
   searchInput.placeholder =
     view === "conversations" ? "Search conversations…" : "Search title, prompt…";
   applyFilterOptions();
@@ -524,8 +522,6 @@ function wirePromptActions(promptText) {
 function setNeedsAttention(on) {
   needsAttention = on;
   needsAttentionBtn.classList.toggle("danger-active", on);
-  needsAttentionBtn.classList.toggle("active", false);
-  attentionToggle.checked = on;
   onFilterChanged();
 }
 
@@ -549,7 +545,6 @@ searchInput.addEventListener("input", () => {
   searchTimer = setTimeout(loadList, 250);
 });
 needsAttentionBtn.addEventListener("click", () => setNeedsAttention(!needsAttention));
-attentionToggle.addEventListener("change", () => setNeedsAttention(attentionToggle.checked));
 builderBtn.addEventListener("click", () => setBuilderOnly(!builderOnly));
 groupByBotBtn.addEventListener("click", () => setGroupByBot(!groupByBot));
 

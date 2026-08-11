@@ -36,12 +36,55 @@ body {
 
 .topbar {
   display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 12px 18px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 18px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+}
+
+.topbar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   flex-wrap: wrap;
+}
+
+.topbar-row-primary {
+  justify-content: space-between;
+}
+
+.topbar-row-controls {
+  align-items: stretch;
+  gap: 12px;
+}
+
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.filters-panel {
+  flex: 1;
+  min-width: 280px;
+}
+
+.shortcuts-panel {
+  flex: 0 0 auto;
+  min-width: 220px;
+}
+
+.panel-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .brand {
@@ -102,7 +145,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  flex: 1;
+  align-items: flex-end;
 }
 
 .filter {
@@ -237,23 +280,11 @@ body {
   flex-wrap: wrap;
 }
 
-.shortcuts {
+.shortcut-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 6px 4px 10px;
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-
-.shortcuts-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  padding-right: 2px;
+  flex-wrap: wrap;
 }
 
 .chip-btn {
@@ -279,6 +310,7 @@ body {
   background: var(--danger-soft);
   border-color: #fecaca;
   color: var(--danger);
+  font-weight: 600;
 }
 
 .group-header {
@@ -331,19 +363,10 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
-  color: var(--muted);
-  cursor: pointer;
-}
-
 .list-count {
-  margin-top: 8px;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--muted);
+  font-weight: 500;
 }
 
 .activity-list {

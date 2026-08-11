@@ -12,71 +12,74 @@
 <body>
   <div class="shell">
     <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">P</div>
-        <div>
-          <div class="brand-title">Playlab Browser</div>
-          <div class="brand-sub" id="totalCount">Loading…</div>
-        </div>
-      </div>
-
-      <div class="view-tabs" role="tablist">
-        <button type="button" class="view-tab active" data-view="conversations" id="tabConversations">Conversations</button>
-        <button type="button" class="view-tab" data-view="activities" id="tabActivities">System prompts</button>
-      </div>
-
-      <div class="filters">
-        <div class="filter">
-          <span>Apps</span>
-          <div class="count-select" id="appSelectWrap" data-name="app">
-            <button type="button" class="count-select-trigger" id="appSelectTrigger">
-              <span class="count-select-label">All</span>
-              <span class="count-select-count" id="appSelectCount"></span>
-            </button>
-            <div class="count-select-menu" id="appSelectMenu" hidden></div>
-            <input type="hidden" id="appSelect" value="All" />
+      <div class="topbar-row topbar-row-primary">
+        <div class="brand">
+          <div class="brand-mark">P</div>
+          <div>
+            <div class="brand-title">Playlab Browser</div>
+            <div class="brand-sub" id="totalCount">Loading…</div>
           </div>
         </div>
-        <div class="filter">
-          <span>Users</span>
-          <div class="count-select" id="userSelectWrap" data-name="user">
-            <button type="button" class="count-select-trigger" id="userSelectTrigger">
-              <span class="count-select-label">All</span>
-              <span class="count-select-count" id="userSelectCount"></span>
-            </button>
-            <div class="count-select-menu" id="userSelectMenu" hidden></div>
-            <input type="hidden" id="userSelect" value="All" />
-          </div>
+
+        <div class="view-tabs" role="tablist">
+          <button type="button" class="view-tab active" data-view="conversations" id="tabConversations">Conversations</button>
+          <button type="button" class="view-tab" data-view="activities" id="tabActivities">System prompts</button>
         </div>
-        <label class="filter" id="modelFilterWrap">
-          <span>Model</span>
-          <select id="modelSelect">
-            <option value="All">All</option>
-          </select>
-        </label>
-        <label class="filter filter-search">
-          <span>Search</span>
-          <input id="searchInput" type="search" placeholder="Search…" />
-        </label>
       </div>
 
-      <div class="top-actions">
-        <div class="shortcuts" id="shortcutsBar">
-          <span class="shortcuts-label">Shortcuts</span>
-          <button id="builderBtn" class="chip-btn" type="button" title="Only Builder conversations">Builder</button>
-          <button id="groupByBotBtn" class="chip-btn" type="button" title="Group sidebar by bot">Group by bot</button>
-        </div>
-        <button id="needsAttentionBtn" class="chip-btn" type="button">Needs attention</button>
+      <div class="topbar-row topbar-row-controls">
+        <section class="control-panel filters-panel">
+          <div class="panel-label">Filters</div>
+          <div class="filters">
+            <div class="filter">
+              <span>Apps</span>
+              <div class="count-select" id="appSelectWrap" data-name="app">
+                <button type="button" class="count-select-trigger" id="appSelectTrigger">
+                  <span class="count-select-label">All</span>
+                  <span class="count-select-count" id="appSelectCount"></span>
+                </button>
+                <div class="count-select-menu" id="appSelectMenu" hidden></div>
+                <input type="hidden" id="appSelect" value="All" />
+              </div>
+            </div>
+            <div class="filter">
+              <span>Users</span>
+              <div class="count-select" id="userSelectWrap" data-name="user">
+                <button type="button" class="count-select-trigger" id="userSelectTrigger">
+                  <span class="count-select-label">All</span>
+                  <span class="count-select-count" id="userSelectCount"></span>
+                </button>
+                <div class="count-select-menu" id="userSelectMenu" hidden></div>
+                <input type="hidden" id="userSelect" value="All" />
+              </div>
+            </div>
+            <label class="filter" id="modelFilterWrap">
+              <span>Model</span>
+              <select id="modelSelect">
+                <option value="All">All</option>
+              </select>
+            </label>
+            <label class="filter filter-search">
+              <span>Search</span>
+              <input id="searchInput" type="search" placeholder="Search…" />
+            </label>
+          </div>
+        </section>
+
+        <section class="control-panel shortcuts-panel" id="shortcutsBar">
+          <div class="panel-label">Shortcuts</div>
+          <div class="shortcut-actions">
+            <button id="builderBtn" class="chip-btn" type="button" title="Only Builder conversations">Builder</button>
+            <button id="groupByBotBtn" class="chip-btn" type="button" title="Group sidebar by bot">Group by bot</button>
+            <button id="needsAttentionBtn" class="chip-btn" type="button" title="Only flagged conversations">Needs attention</button>
+          </div>
+        </section>
       </div>
     </header>
 
     <div class="workspace">
       <aside class="sidebar">
         <div class="sidebar-head">
-          <label class="toggle">
-            <input type="checkbox" id="attentionToggle" />
-            <span id="attentionLabel">Jump to messages that need attention</span>
-          </label>
           <div id="listCount" class="list-count">0 items</div>
         </div>
         <div id="itemList" class="activity-list">
