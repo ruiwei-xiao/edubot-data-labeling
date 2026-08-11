@@ -206,8 +206,22 @@ def load_conversations(force_refresh: bool = False) -> tuple[dict[str, Any], ...
 
 def get_conversation_filter_options() -> dict[str, Any]:
     conversations = load_conversations()
-    users = sorted({c["user"] for c in conversations if c["user"]})
-    apps = sorted({c["title"] for c in conversations if c["title"]})
+    user_counts: dict[str, int] = {}
+    app_counts: dict[str, int] = {}
+    for c in conversations:
+        if c["user"]:
+            user_counts[c["user"]] = user_counts.get(c["user"], 0) + 1
+        if c["title"]:
+            app_counts[c["title"]] = app_counts.get(c["title"], 0) + 1
+
+    users = [
+        {"name": name, "count": user_counts[name]}
+        for name in sorted(user_counts.keys())
+    ]
+    apps = [
+        {"name": name, "count": app_counts[name]}
+        for name in sorted(app_counts.keys())
+    ]
     dates = sorted({c["date"] for c in conversations if c["date"]})
     return {
         "users": users,

@@ -181,11 +181,31 @@ def load_activities(force_refresh: bool = False) -> tuple[dict[str, Any], ...]:
         ) from sheet_err
 
 
-def get_filter_options() -> dict[str, list[str]]:
+def get_filter_options() -> dict[str, Any]:
     activities = load_activities()
-    creators = sorted({a["creator"] for a in activities if a["creator"]})
-    apps = sorted({a["app_name"] for a in activities if a["app_name"]})
-    models = sorted({a["model"] for a in activities if a["model"]})
+    creator_counts: dict[str, int] = {}
+    app_counts: dict[str, int] = {}
+    model_counts: dict[str, int] = {}
+    for a in activities:
+        if a["creator"]:
+            creator_counts[a["creator"]] = creator_counts.get(a["creator"], 0) + 1
+        if a["app_name"]:
+            app_counts[a["app_name"]] = app_counts.get(a["app_name"], 0) + 1
+        if a["model"]:
+            model_counts[a["model"]] = model_counts.get(a["model"], 0) + 1
+
+    creators = [
+        {"name": name, "count": creator_counts[name]}
+        for name in sorted(creator_counts.keys())
+    ]
+    apps = [
+        {"name": name, "count": app_counts[name]}
+        for name in sorted(app_counts.keys())
+    ]
+    models = [
+        {"name": name, "count": model_counts[name]}
+        for name in sorted(model_counts.keys())
+    ]
     dates = sorted(
         {a["date"] for a in activities if a["date"]},
         key=lambda d: _parse_date(d) or datetime.min,

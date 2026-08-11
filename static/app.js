@@ -40,13 +40,21 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function fillSelect(select, values, allLabel = "All") {
+function normalizeOptions(values) {
+  return (values || []).map((v) =>
+    typeof v === "string" ? { name: v, count: null } : { name: v.name, count: v.count }
+  );
+}
+
+function fillSelect(select, values, allLabel = "All", allCount = null) {
   const current = select.value || "All";
-  select.innerHTML = `<option value="All">${allLabel}</option>`;
-  (values || []).forEach((v) => {
+  const items = normalizeOptions(values);
+  const allText = allCount == null ? allLabel : `${allLabel} (${allCount})`;
+  select.innerHTML = `<option value="All">${allText}</option>`;
+  items.forEach(({ name, count }) => {
     const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
+    opt.value = name;
+    opt.textContent = count == null ? name : `${name} (${count})`;
     select.appendChild(opt);
   });
   if ([...select.options].some((o) => o.value === current)) {
@@ -55,6 +63,79 @@ function fillSelect(select, values, allLabel = "All") {
     select.value = "All";
   }
 }
+
+function closeAllCountSelects(except) {
+  document.querySelectorAll(".count-select.open").forEach((el) => {
+    if (el !== except) {
+      el.classList.remove("open");
+      const menu = el.querySelector(".count-select-menu");
+      if (menu) menu.hidden = true;
+    }
+  });
+}
+
+function fillCountSelect(wrapId, values, allCount) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  const menu = wrap.querySelector(".count-select-menu");
+  const hidden = wrap.querySelector('input[type="hidden"]');
+  const label = wrap.querySelector(".count-select-label");
+  const triggerCount = wrap.querySelector(".count-select-count");
+  const items = normalizeOptions(values);
+  const current = hidden.value || "All";
+
+  const renderTrigger = (name, count) => {
+    label.textContent = name;
+    triggerCount.textContent = count == null ? "" : String(count);
+  };
+
+  const rows = [{ name: "All", count: allCount }, ...items];
+  menu.innerHTML = rows
+    .map(
+      ({ name, count }) => `
+    <button type="button" class="count-select-option ${name === current ? "active" : ""}" data-value="${escapeHtml(
+        name
+      )}">
+      <span class="opt-name">${escapeHtml(name)}</span>
+      <span class="opt-count">${count == null ? "" : escapeHtml(String(count))}</span>
+    </button>`
+    )
+    .join("");
+
+  const selected = rows.find((r) => r.name === current) || rows[0];
+  hidden.value = selected.name;
+  renderTrigger(selected.name, selected.count);
+
+  menu.querySelectorAll(".count-select-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const value = btn.dataset.value;
+      const row = rows.find((r) => r.name === value) || rows[0];
+      hidden.value = row.name;
+      renderTrigger(row.name, row.count);
+      closeAllCountSelects();
+      loadList();
+    });
+  });
+}
+
+function wireCountSelect(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap || wrap.dataset.wired) return;
+  wrap.dataset.wired = "1";
+  const trigger = wrap.querySelector(".count-select-trigger");
+  const menu = wrap.querySelector(".count-select-menu");
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = menu.hidden;
+    closeAllCountSelects();
+    if (willOpen) {
+      wrap.classList.add("open");
+      menu.hidden = false;
+    }
+  });
+}
+
+document.addEventListener("click", () => closeAllCountSelects());
 
 function setView(next) {
   view = next;
@@ -76,14 +157,14 @@ function setView(next) {
 function applyFilterOptions() {
   if (view === "conversations") {
     const c = filterData.conversations || {};
-    fillSelect(appSelect, c.apps || []);
-    fillSelect(userSelect, c.users || []);
+    fillCountSelect("appSelectWrap", c.apps || [], c.total || 0);
+    fillCountSelect("userSelectWrap", c.users || [], c.total || 0);
     totalCount.textContent = `${c.total || 0} conversations · ${c.message_rows || 0} messages`;
   } else {
     const a = filterData.activities || {};
-    fillSelect(appSelect, a.apps || []);
-    fillSelect(userSelect, a.creators || []);
-    fillSelect(modelSelect, a.models || []);
+    fillCountSelect("appSelectWrap", a.apps || [], a.total || 0);
+    fillCountSelect("userSelectWrap", a.creators || [], a.total || 0);
+    fillSelect(modelSelect, a.models || [], "All", a.total || 0);
     totalCount.textContent = `${a.total || 0} system-prompt activities`;
   }
 }
@@ -387,8 +468,6 @@ function setBuilderOnly(on) {
 
 tabConversations.addEventListener("click", () => setView("conversations"));
 tabActivities.addEventListener("click", () => setView("activities"));
-appSelect.addEventListener("change", loadList);
-userSelect.addEventListener("change", loadList);
 modelSelect.addEventListener("change", loadList);
 searchInput.addEventListener("input", () => {
   clearTimeout(searchTimer);
@@ -400,6 +479,8 @@ builderBtn.addEventListener("click", () => setBuilderOnly(!builderOnly));
 
 (async function init() {
   try {
+    wireCountSelect("appSelectWrap");
+    wireCountSelect("userSelectWrap");
     modelFilterWrap.style.display = "none";
     await loadFilters();
     await loadList();

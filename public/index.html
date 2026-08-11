@@ -26,18 +26,28 @@
       </div>
 
       <div class="filters">
-        <label class="filter">
+        <div class="filter">
           <span>Apps</span>
-          <select id="appSelect">
-            <option value="All">All</option>
-          </select>
-        </label>
-        <label class="filter">
+          <div class="count-select" id="appSelectWrap" data-name="app">
+            <button type="button" class="count-select-trigger" id="appSelectTrigger">
+              <span class="count-select-label">All</span>
+              <span class="count-select-count" id="appSelectCount"></span>
+            </button>
+            <div class="count-select-menu" id="appSelectMenu" hidden></div>
+            <input type="hidden" id="appSelect" value="All" />
+          </div>
+        </div>
+        <div class="filter">
           <span>Users</span>
-          <select id="userSelect">
-            <option value="All">All</option>
-          </select>
-        </label>
+          <div class="count-select" id="userSelectWrap" data-name="user">
+            <button type="button" class="count-select-trigger" id="userSelectTrigger">
+              <span class="count-select-label">All</span>
+              <span class="count-select-count" id="userSelectCount"></span>
+            </button>
+            <div class="count-select-menu" id="userSelectMenu" hidden></div>
+            <input type="hidden" id="userSelect" value="All" />
+          </div>
+        </div>
         <label class="filter" id="modelFilterWrap">
           <span>Model</span>
           <select id="modelSelect">
