@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "python scripts/fetch_sheets.py",
+  "installCommand": "pip install -r requirements.txt",
+  "functions": {
+    "app/main.py": {
+      "maxDuration": 60,
+      "memory": 1024,
+      "excludeFiles": "{venv/**,data/*.csv,**/*.pyc,__pycache__/**,.git/**}"
+    }
+  }
+}

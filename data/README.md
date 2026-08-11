@@ -1,10 +1,22 @@
 # Data files
 
-Place Playlab CSV exports here:
+Primary source is the shared Google Sheet:
 
-| File | Required | Notes |
-|------|----------|-------|
-| `playlab_activities_with_messages - system_prompt (origin).csv` | Yes (tracked) | Activity / system-prompt configs |
-| `playlab_activities_with_messages - all_data_origin.csv` | Local only | Full conversation messages (~109MB). Not committed — exceeds GitHub file size limit. Keep a local copy next to this README. |
+https://docs.google.com/spreadsheets/d/1xNPMlwkfviJk2GuDdrVZHnBTOF2LILGSoKQo5IxDGaQ/edit?usp=sharing
 
-Without the all-data CSV, the **Conversations** tab will fail to load until you add the file locally.
+| Tab | Used for |
+|-----|----------|
+| `all_data_origin` | Conversations view |
+| `system_prompt (origin)` | System prompts view |
+
+At build/deploy time, `scripts/fetch_sheets.py` downloads those tabs and writes:
+
+- `data/cache/conversations.json`
+- `data/cache/activities.json`
+
+Local CSV fallbacks (optional):
+
+| File | Notes |
+|------|-------|
+| `playlab_activities_with_messages - system_prompt (origin).csv` | Tracked |
+| `playlab_activities_with_messages - all_data_origin.csv` | Local only (~109MB, not committed) |

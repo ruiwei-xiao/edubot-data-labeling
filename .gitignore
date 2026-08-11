@@ -3,8 +3,10 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
-*.json
-!package.json
+credentials*.json
+service-account*.json
+data/cache/
+.vercel/
 
 # Large local dataset (109MB — exceeds GitHub 100MB limit)
 data/playlab_activities_with_messages - all_data_origin.csv

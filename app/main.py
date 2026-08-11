@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -24,20 +24,41 @@ from app.data_loader import (
 
 app = FastAPI(title="Playlab Activities Browser")
 
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+ROOT = Path(__file__).resolve().parent.parent
+STATIC_DIR = ROOT / "static"
+PUBLIC_DIR = ROOT / "public"
+FRONTEND_DIR = PUBLIC_DIR if (PUBLIC_DIR / "index.html").exists() else STATIC_DIR
+
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.on_event("startup")
 def warmup():
+    # Prefer cache built at deploy time; otherwise fetch/local fallback.
     load_activities()
-    # conversations CSV is large — load in background path on first request / here
     load_conversations()
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    return (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+
+
+@app.get("/styles.css")
+async def styles():
+    path = FRONTEND_DIR / "styles.css"
+    if not path.exists():
+        path = STATIC_DIR / "styles.css"
+    return FileResponse(path)
+
+
+@app.get("/app.js")
+async def app_js():
+    path = FRONTEND_DIR / "app.js"
+    if not path.exists():
+        path = STATIC_DIR / "app.js"
+    return FileResponse(path)
 
 
 @app.get("/api/filters")
@@ -113,3 +134,18 @@ async def conversation_detail(conv_id: str):
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return conv
+
+
+@app.post("/api/refresh")
+async def refresh_data():
+    from app.conversations_loader import reload_conversations
+    from app.data_loader import reload_activities
+
+    reload_activities()
+    reload_conversations()
+    activities = load_activities(force_refresh=True)
+    conversations = load_conversations(force_refresh=True)
+    return {
+        "activities": len(activities),
+        "conversations": len(conversations),
+    }

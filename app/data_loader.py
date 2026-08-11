@@ -1,16 +1,35 @@
 from __future__ import annotations
 
 import csv
+import io
+import json
+import os
 from datetime import datetime
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-CSV_PATH = DATA_DIR / "playlab_activities_with_messages - system_prompt (origin).csv"
+CACHE_PATH = DATA_DIR / "cache" / "activities.json"
+LOCAL_CSV_PATH = DATA_DIR / "playlab_activities_with_messages - system_prompt (origin).csv"
+
+DEFAULT_SHEET_ID = "1xNPMlwkfviJk2GuDdrVZHnBTOF2LILGSoKQo5IxDGaQ"
+DEFAULT_SHEET_TAB = "system_prompt (origin)"
 
 SETTING_PREFIX = "setting: "
 TOOL_PREFIX = "tool: "
+
+_cache: Optional[tuple[dict[str, Any], ...]] = None
+
+
+def sheet_csv_url(sheet_id: Optional[str] = None, tab: Optional[str] = None) -> str:
+    sid = sheet_id or os.environ.get("GOOGLE_SHEET_ID", DEFAULT_SHEET_ID)
+    tab_name = tab or os.environ.get("GOOGLE_SHEET_SYSTEM_PROMPT_TAB", DEFAULT_SHEET_TAB)
+    return (
+        f"https://docs.google.com/spreadsheets/d/{sid}/gviz/tq"
+        f"?tqx=out:csv&sheet={quote(tab_name)}"
+    )
 
 
 def _parse_date(value: str) -> Optional[datetime]:
@@ -87,28 +106,79 @@ def _row_to_activity(row: dict[str, str]) -> dict[str, Any]:
     }
 
 
-@lru_cache(maxsize=1)
-def load_activities() -> tuple[dict[str, Any], ...]:
-    if not CSV_PATH.exists():
-        raise FileNotFoundError(f"Data file not found: {CSV_PATH}")
+def fetch_sheet_csv(url: Optional[str] = None) -> str:
+    target = url or sheet_csv_url()
+    req = Request(target, headers={"User-Agent": "edubot-data-labeling/1.0"})
+    with urlopen(req, timeout=120) as resp:
+        return resp.read().decode("utf-8")
 
-    activities: list[dict[str, Any]] = []
-    with CSV_PATH.open(newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            activity = _row_to_activity(row)
-            if activity["id"]:
-                activities.append(activity)
 
+def build_activities_from_csv_text(text: str) -> list[dict[str, Any]]:
+    reader = csv.DictReader(io.StringIO(text))
+    activities = []
+    for row in reader:
+        activity = _row_to_activity(row)
+        if activity["id"]:
+            activities.append(activity)
     activities.sort(
         key=lambda a: (a["date_sort"] or "", a["title"].lower()),
         reverse=True,
     )
-    return tuple(activities)
+    return activities
+
+
+def save_activities_cache(activities: list[dict[str, Any]], path: Path = CACHE_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(activities, ensure_ascii=False), encoding="utf-8")
+
+
+def load_activities_cache(path: Path = CACHE_PATH) -> Optional[list[dict[str, Any]]]:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def reload_activities() -> None:
-    load_activities.cache_clear()
+    global _cache
+    _cache = None
+
+
+def load_activities(force_refresh: bool = False) -> tuple[dict[str, Any], ...]:
+    global _cache
+    if _cache is not None and not force_refresh:
+        return _cache
+
+    cached = load_activities_cache()
+    if cached is not None and not force_refresh:
+        _cache = tuple(cached)
+        return _cache
+
+    try:
+        text = fetch_sheet_csv()
+        activities = build_activities_from_csv_text(text)
+        try:
+            save_activities_cache(activities)
+        except OSError:
+            pass
+        _cache = tuple(activities)
+        return _cache
+    except Exception as sheet_err:
+        if LOCAL_CSV_PATH.exists():
+            with LOCAL_CSV_PATH.open(newline="", encoding="utf-8") as f:
+                activities = []
+                for row in csv.DictReader(f):
+                    activity = _row_to_activity(row)
+                    if activity["id"]:
+                        activities.append(activity)
+                activities.sort(
+                    key=lambda a: (a["date_sort"] or "", a["title"].lower()),
+                    reverse=True,
+                )
+            _cache = tuple(activities)
+            return _cache
+        raise FileNotFoundError(
+            f"Unable to load activities from Google Sheet or local CSV: {sheet_err}"
+        ) from sheet_err
 
 
 def get_filter_options() -> dict[str, list[str]]:
@@ -116,7 +186,10 @@ def get_filter_options() -> dict[str, list[str]]:
     creators = sorted({a["creator"] for a in activities if a["creator"]})
     apps = sorted({a["app_name"] for a in activities if a["app_name"]})
     models = sorted({a["model"] for a in activities if a["model"]})
-    dates = sorted({a["date"] for a in activities if a["date"]}, key=lambda d: _parse_date(d) or datetime.min)
+    dates = sorted(
+        {a["date"] for a in activities if a["date"]},
+        key=lambda d: _parse_date(d) or datetime.min,
+    )
     return {
         "creators": creators,
         "apps": apps,

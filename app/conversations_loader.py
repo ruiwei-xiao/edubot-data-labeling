@@ -1,18 +1,38 @@
 from __future__ import annotations
 
 import csv
+import io
+import json
+import os
+import re
 from datetime import datetime
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-CSV_PATH = DATA_DIR / "playlab_activities_with_messages - all_data_origin.csv"
+CACHE_PATH = DATA_DIR / "cache" / "conversations.json"
+LOCAL_CSV_PATH = DATA_DIR / "playlab_activities_with_messages - all_data_origin.csv"
+
+DEFAULT_SHEET_ID = "1xNPMlwkfviJk2GuDdrVZHnBTOF2LILGSoKQo5IxDGaQ"
+DEFAULT_SHEET_TAB = "all_data_origin"
 
 CONTINUED_KEYS = [
     "message_content_continued",
     *[f"message_content_continued_{i}" for i in range(2, 12)],
 ]
+
+_cache: Optional[tuple[dict[str, Any], ...]] = None
+
+
+def sheet_csv_url(sheet_id: Optional[str] = None, tab: Optional[str] = None) -> str:
+    sid = sheet_id or os.environ.get("GOOGLE_SHEET_ID", DEFAULT_SHEET_ID)
+    tab_name = tab or os.environ.get("GOOGLE_SHEET_ALL_DATA_TAB", DEFAULT_SHEET_TAB)
+    return (
+        f"https://docs.google.com/spreadsheets/d/{sid}/gviz/tq"
+        f"?tqx=out:csv&sheet={quote(tab_name)}"
+    )
 
 
 def _truthy(value: str) -> bool:
@@ -25,7 +45,10 @@ def _parse_date(value: str) -> Optional[datetime]:
         return None
     for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%S", "%b %d, %Y"):
         try:
-            return datetime.strptime(value[:19] if "T" in value and fmt.startswith("%Y-%m-%dT") else value, fmt)
+            return datetime.strptime(
+                value[:19] if "T" in value and fmt.startswith("%Y-%m-%dT") else value,
+                fmt,
+            )
         except ValueError:
             continue
     return None
@@ -41,10 +64,7 @@ def _assemble_message(row: dict[str, str]) -> str:
     if parts:
         return "\n".join(parts)
     raw = (row.get("message_content") or "").strip()
-    # strip simple HTML tags for display fallback
     if raw.startswith("<"):
-        import re
-
         return re.sub(r"<[^>]+>", "", raw).strip()
     return raw
 
@@ -66,24 +86,21 @@ def _message_from_row(row: dict[str, str]) -> dict[str, Any]:
     }
 
 
-@lru_cache(maxsize=1)
-def load_conversations() -> tuple[dict[str, Any], ...]:
-    if not CSV_PATH.exists():
-        raise FileNotFoundError(f"Data file not found: {CSV_PATH}")
-
+def _rows_to_conversations(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     buckets: dict[str, list[dict[str, str]]] = {}
-    with CSV_PATH.open(newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            cid = (row.get("conv_id") or "").strip()
-            if not cid:
-                continue
-            buckets.setdefault(cid, []).append(row)
+    for row in rows:
+        cid = (row.get("conv_id") or "").strip()
+        if not cid:
+            continue
+        buckets.setdefault(cid, []).append(row)
 
     conversations: list[dict[str, Any]] = []
-    for cid, rows in buckets.items():
+    for cid, bucket in buckets.items():
         rows_sorted = sorted(
-            rows,
-            key=lambda r: int(r.get("message_number") or 0) if str(r.get("message_number") or "").isdigit() else 0,
+            bucket,
+            key=lambda r: int(r.get("message_number") or 0)
+            if str(r.get("message_number") or "").isdigit()
+            else 0,
         )
         head = rows_sorted[0]
         user = (head.get("deanon_user") or head.get("user") or "Anonymous").strip() or "Anonymous"
@@ -118,11 +135,73 @@ def load_conversations() -> tuple[dict[str, Any], ...]:
         key=lambda c: (c["date_sort"] or "", int(c["conv_id"]) if str(c["conv_id"]).isdigit() else 0),
         reverse=True,
     )
-    return tuple(conversations)
+    return conversations
+
+
+def fetch_sheet_csv(url: Optional[str] = None) -> str:
+    target = url or sheet_csv_url()
+    req = Request(target, headers={"User-Agent": "edubot-data-labeling/1.0"})
+    with urlopen(req, timeout=180) as resp:
+        return resp.read().decode("utf-8")
+
+
+def parse_csv_text(text: str) -> list[dict[str, str]]:
+    reader = csv.DictReader(io.StringIO(text))
+    return [dict(row) for row in reader]
+
+
+def build_conversations_from_csv_text(text: str) -> list[dict[str, Any]]:
+    return _rows_to_conversations(parse_csv_text(text))
+
+
+def save_conversations_cache(conversations: list[dict[str, Any]], path: Path = CACHE_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(conversations, ensure_ascii=False), encoding="utf-8")
+
+
+def load_conversations_cache(path: Path = CACHE_PATH) -> Optional[list[dict[str, Any]]]:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def reload_conversations() -> None:
-    load_conversations.cache_clear()
+    global _cache
+    _cache = None
+
+
+def load_conversations(force_refresh: bool = False) -> tuple[dict[str, Any], ...]:
+    global _cache
+    if _cache is not None and not force_refresh:
+        return _cache
+
+    # 1) Prefer prebuilt cache (Vercel build / local script)
+    cached = load_conversations_cache()
+    if cached is not None and not force_refresh:
+        _cache = tuple(cached)
+        return _cache
+
+    # 2) Fetch Google Sheet
+    try:
+        text = fetch_sheet_csv()
+        conversations = build_conversations_from_csv_text(text)
+        try:
+            save_conversations_cache(conversations)
+        except OSError:
+            pass
+        _cache = tuple(conversations)
+        return _cache
+    except Exception as sheet_err:
+        # 3) Fallback local CSV
+        if LOCAL_CSV_PATH.exists():
+            with LOCAL_CSV_PATH.open(newline="", encoding="utf-8") as f:
+                rows = list(csv.DictReader(f))
+            conversations = _rows_to_conversations(rows)
+            _cache = tuple(conversations)
+            return _cache
+        raise FileNotFoundError(
+            f"Unable to load conversations from Google Sheet or local CSV: {sheet_err}"
+        ) from sheet_err
 
 
 def get_conversation_filter_options() -> dict[str, Any]:
