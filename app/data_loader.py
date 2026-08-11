@@ -181,31 +181,58 @@ def load_activities(force_refresh: bool = False) -> tuple[dict[str, Any], ...]:
         ) from sheet_err
 
 
-def get_filter_options() -> dict[str, Any]:
-    activities = load_activities()
-    creator_counts: dict[str, int] = {}
+def get_filter_options(
+    creator: Optional[str] = None,
+    app: Optional[str] = None,
+    model: Optional[str] = None,
+) -> dict[str, Any]:
+    activities = list(load_activities())
+
+    # Apps: respect creator/model, ignore selected app
+    apps_source = activities
+    if creator and creator.lower() != "all":
+        apps_source = [a for a in apps_source if a["creator"] == creator]
+    if model and model.lower() != "all":
+        apps_source = [a for a in apps_source if a["model"] == model]
     app_counts: dict[str, int] = {}
-    model_counts: dict[str, int] = {}
-    for a in activities:
-        if a["creator"]:
-            creator_counts[a["creator"]] = creator_counts.get(a["creator"], 0) + 1
+    for a in apps_source:
         if a["app_name"]:
             app_counts[a["app_name"]] = app_counts.get(a["app_name"], 0) + 1
-        if a["model"]:
-            model_counts[a["model"]] = model_counts.get(a["model"], 0) + 1
-
-    creators = [
-        {"name": name, "count": creator_counts[name]}
-        for name in sorted(creator_counts.keys())
-    ]
     apps = [
         {"name": name, "count": app_counts[name]}
         for name in sorted(app_counts.keys())
     ]
+
+    # Creators: respect app/model, ignore selected creator
+    creators_source = activities
+    if app and app.lower() != "all":
+        creators_source = [a for a in creators_source if a["app_name"] == app]
+    if model and model.lower() != "all":
+        creators_source = [a for a in creators_source if a["model"] == model]
+    creator_counts: dict[str, int] = {}
+    for a in creators_source:
+        if a["creator"]:
+            creator_counts[a["creator"]] = creator_counts.get(a["creator"], 0) + 1
+    creators = [
+        {"name": name, "count": creator_counts[name]}
+        for name in sorted(creator_counts.keys())
+    ]
+
+    # Models: respect creator/app, ignore selected model
+    models_source = activities
+    if creator and creator.lower() != "all":
+        models_source = [a for a in models_source if a["creator"] == creator]
+    if app and app.lower() != "all":
+        models_source = [a for a in models_source if a["app_name"] == app]
+    model_counts: dict[str, int] = {}
+    for a in models_source:
+        if a["model"]:
+            model_counts[a["model"]] = model_counts.get(a["model"], 0) + 1
     models = [
         {"name": name, "count": model_counts[name]}
         for name in sorted(model_counts.keys())
     ]
+
     dates = sorted(
         {a["date"] for a in activities if a["date"]},
         key=lambda d: _parse_date(d) or datetime.min,
@@ -215,6 +242,9 @@ def get_filter_options() -> dict[str, Any]:
         "apps": apps,
         "models": models,
         "dates": dates,
+        "apps_total": len(apps_source),
+        "creators_total": len(creators_source),
+        "models_total": len(models_source),
     }
 
 

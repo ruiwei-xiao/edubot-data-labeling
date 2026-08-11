@@ -62,9 +62,21 @@ async def app_js():
 
 
 @app.get("/api/filters")
-async def filters():
-    activity_opts = get_filter_options()
-    conv_opts = get_conversation_filter_options()
+async def filters(
+    user: Optional[str] = Query(default=None),
+    app: Optional[str] = Query(default=None),
+    builder_only: bool = Query(default=False),
+    needs_attention: bool = Query(default=False),
+    creator: Optional[str] = Query(default=None),
+    model: Optional[str] = Query(default=None),
+):
+    activity_opts = get_filter_options(creator=creator, app=app, model=model)
+    conv_opts = get_conversation_filter_options(
+        user=user,
+        app=app,
+        builder_only=builder_only,
+        needs_attention=needs_attention,
+    )
     return {
         "activities": {
             **activity_opts,

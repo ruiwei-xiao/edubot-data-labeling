@@ -204,30 +204,58 @@ def load_conversations(force_refresh: bool = False) -> tuple[dict[str, Any], ...
         ) from sheet_err
 
 
-def get_conversation_filter_options() -> dict[str, Any]:
-    conversations = load_conversations()
-    user_counts: dict[str, int] = {}
+def get_conversation_filter_options(
+    user: Optional[str] = None,
+    app: Optional[str] = None,
+    builder_only: bool = False,
+    needs_attention: bool = False,
+) -> dict[str, Any]:
+    conversations = list(load_conversations())
+
+    def apply_base(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        out = rows
+        if builder_only:
+            out = [c for c in out if c["is_builder"]]
+        if needs_attention:
+            out = [c for c in out if c["has_flagged"]]
+        return out
+
+    base = apply_base(conversations)
+
+    # Apps options ignore selected app; respect user/builder/attention
+    apps_source = base
+    if user and user.lower() != "all":
+        apps_source = [c for c in apps_source if c["user"] == user]
     app_counts: dict[str, int] = {}
-    for c in conversations:
-        if c["user"]:
-            user_counts[c["user"]] = user_counts.get(c["user"], 0) + 1
+    for c in apps_source:
         if c["title"]:
             app_counts[c["title"]] = app_counts.get(c["title"], 0) + 1
-
-    users = [
-        {"name": name, "count": user_counts[name]}
-        for name in sorted(user_counts.keys())
-    ]
     apps = [
         {"name": name, "count": app_counts[name]}
         for name in sorted(app_counts.keys())
     ]
+
+    # Users options ignore selected user; respect app/builder/attention
+    users_source = base
+    if app and app.lower() != "all":
+        users_source = [c for c in users_source if c["title"] == app]
+    user_counts: dict[str, int] = {}
+    for c in users_source:
+        if c["user"]:
+            user_counts[c["user"]] = user_counts.get(c["user"], 0) + 1
+    users = [
+        {"name": name, "count": user_counts[name]}
+        for name in sorted(user_counts.keys())
+    ]
+
     dates = sorted({c["date"] for c in conversations if c["date"]})
     return {
         "users": users,
         "apps": apps,
         "dates": dates,
         "total": len(conversations),
+        "apps_total": len(apps_source),
+        "users_total": len(users_source),
         "message_rows": sum(c["message_count"] for c in conversations),
     }
 

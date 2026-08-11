@@ -74,7 +74,7 @@ function closeAllCountSelects(except) {
   });
 }
 
-function fillCountSelect(wrapId, values, allCount) {
+function fillCountSelect(wrapId, values, allCount, onChange) {
   const wrap = document.getElementById(wrapId);
   if (!wrap) return;
   const menu = wrap.querySelector(".count-select-menu");
@@ -82,7 +82,7 @@ function fillCountSelect(wrapId, values, allCount) {
   const label = wrap.querySelector(".count-select-label");
   const triggerCount = wrap.querySelector(".count-select-count");
   const items = normalizeOptions(values);
-  const current = hidden.value || "All";
+  let current = hidden.value || "All";
 
   const renderTrigger = (name, count) => {
     label.textContent = name;
@@ -90,6 +90,10 @@ function fillCountSelect(wrapId, values, allCount) {
   };
 
   const rows = [{ name: "All", count: allCount }, ...items];
+  if (current !== "All" && !rows.some((r) => r.name === current)) {
+    current = "All";
+  }
+
   menu.innerHTML = rows
     .map(
       ({ name, count }) => `
@@ -113,7 +117,8 @@ function fillCountSelect(wrapId, values, allCount) {
       hidden.value = row.name;
       renderTrigger(row.name, row.count);
       closeAllCountSelects();
-      loadList();
+      if (onChange) onChange(row.name);
+      else loadList();
     });
   });
 }
@@ -157,20 +162,51 @@ function setView(next) {
 function applyFilterOptions() {
   if (view === "conversations") {
     const c = filterData.conversations || {};
-    fillCountSelect("appSelectWrap", c.apps || [], c.total || 0);
-    fillCountSelect("userSelectWrap", c.users || [], c.total || 0);
+    fillCountSelect("appSelectWrap", c.apps || [], c.apps_total ?? c.total ?? 0, onFilterChanged);
+    fillCountSelect("userSelectWrap", c.users || [], c.users_total ?? c.total ?? 0, onFilterChanged);
     totalCount.textContent = `${c.total || 0} conversations · ${c.message_rows || 0} messages`;
   } else {
     const a = filterData.activities || {};
-    fillCountSelect("appSelectWrap", a.apps || [], a.total || 0);
-    fillCountSelect("userSelectWrap", a.creators || [], a.total || 0);
-    fillSelect(modelSelect, a.models || [], "All", a.total || 0);
+    fillCountSelect("appSelectWrap", a.apps || [], a.apps_total ?? a.total ?? 0, onFilterChanged);
+    fillCountSelect("userSelectWrap", a.creators || [], a.creators_total ?? a.total ?? 0, onFilterChanged);
+    fillSelect(modelSelect, a.models || [], "All", a.models_total ?? a.total ?? 0);
     totalCount.textContent = `${a.total || 0} system-prompt activities`;
   }
 }
 
+function filterQueryParams() {
+  const params = new URLSearchParams();
+  if (view === "conversations") {
+    if (userSelect.value && userSelect.value !== "All") params.set("user", userSelect.value);
+    if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
+    if (builderOnly) params.set("builder_only", "true");
+    if (needsAttention) params.set("needs_attention", "true");
+  } else {
+    if (userSelect.value && userSelect.value !== "All") params.set("creator", userSelect.value);
+    if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
+    if (modelSelect.value && modelSelect.value !== "All") params.set("model", modelSelect.value);
+  }
+  return params;
+}
+
+async function refreshCascadingFilters() {
+  const res = await fetch(`/api/filters?${filterQueryParams().toString()}`);
+  const data = await res.json();
+  if (view === "conversations") {
+    filterData.conversations = data.conversations || filterData.conversations;
+  } else {
+    filterData.activities = data.activities || filterData.activities;
+  }
+  applyFilterOptions();
+}
+
+async function onFilterChanged() {
+  await refreshCascadingFilters();
+  await loadList();
+}
+
 async function loadFilters() {
-  const res = await fetch("/api/filters");
+  const res = await fetch(`/api/filters?${filterQueryParams().toString()}`);
   filterData = await res.json();
   applyFilterOptions();
 }
@@ -457,18 +493,18 @@ function setNeedsAttention(on) {
   needsAttention = on;
   needsAttentionBtn.classList.toggle("active", on);
   attentionToggle.checked = on;
-  loadList();
+  onFilterChanged();
 }
 
 function setBuilderOnly(on) {
   builderOnly = on;
   builderBtn.classList.toggle("active", on);
-  loadList();
+  onFilterChanged();
 }
 
 tabConversations.addEventListener("click", () => setView("conversations"));
 tabActivities.addEventListener("click", () => setView("activities"));
-modelSelect.addEventListener("change", loadList);
+modelSelect.addEventListener("change", () => onFilterChanged());
 searchInput.addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(loadList, 250);
