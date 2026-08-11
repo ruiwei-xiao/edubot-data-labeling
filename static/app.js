@@ -16,6 +16,10 @@ const itemList = document.getElementById("itemList");
 const detailPane = document.getElementById("detailPane");
 const listCount = document.getElementById("listCount");
 const totalCount = document.getElementById("totalCount");
+const workspace = document.getElementById("workspace");
+const botMapView = document.getElementById("botMapView");
+const botMapGrid = document.getElementById("botMapGrid");
+const botMapCount = document.getElementById("botMapCount");
 const needsAttentionBtn = document.getElementById("needsAttentionBtn");
 const builderBtn = document.getElementById("builderBtn");
 const groupByBotBtn = document.getElementById("groupByBotBtn");
@@ -312,7 +316,33 @@ function activityItemHtml(a) {
     </button>`;
 }
 
-function renderGroupedConversations() {
+function botCardHtml(c) {
+  return `
+    <button class="bot-card ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button">
+      <div class="bot-card-top">
+        <div class="bot-card-user">${escapeHtml(c.user)}</div>
+        <div class="bot-card-date">${escapeHtml(c.date)}</div>
+      </div>
+      <div class="bot-card-meta">
+        <span>${c.message_count} msg${c.message_count === 1 ? "" : "s"}</span>
+        <span>${c.is_builder ? "Builder" : c.has_flagged ? "Flagged" : ""}</span>
+      </div>
+    </button>`;
+}
+
+function botSectionHtml(label, className, sectionItems) {
+  return `
+    <div class="bot-section ${className}">
+      <div class="bot-section-label">${escapeHtml(label)} · ${sectionItems.length}</div>
+      ${
+        sectionItems.length
+          ? sectionItems.map(botCardHtml).join("")
+          : `<div class="bot-section-empty">None</div>`
+      }
+    </div>`;
+}
+
+function renderBotMap() {
   const groups = new Map();
   items.forEach((c) => {
     const key = c.title || "Untitled";
@@ -320,26 +350,65 @@ function renderGroupedConversations() {
     groups.get(key).push(c);
   });
 
-  const sortedKeys = [...groups.keys()].sort((a, b) => a.localeCompare(b));
-  return sortedKeys
+  const sortedKeys = [...groups.keys()].sort((a, b) => {
+    const diff = groups.get(b).length - groups.get(a).length;
+    return diff !== 0 ? diff : a.localeCompare(b);
+  });
+
+  botMapCount.textContent = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${items.length} conversations`;
+
+  botMapGrid.innerHTML = sortedKeys
     .map((key) => {
       const groupItems = groups.get(key);
+      const builders = groupItems.filter((c) => c.is_builder);
+      const anonymous = groupItems.filter((c) => !c.is_builder && c.user === "Anonymous");
+      const others = groupItems.filter((c) => !c.is_builder && c.user !== "Anonymous");
+
       return `
-        <div class="group-header">
-          <div class="group-header-title">${escapeHtml(key)}</div>
-          <div class="group-header-count">${groupItems.length}</div>
-        </div>
-        ${groupItems.map(conversationItemHtml).join("")}
-      `;
+        <div class="bot-column">
+          <div class="bot-column-header">
+            <div class="bot-column-title">${escapeHtml(key)}</div>
+            <div class="bot-column-stats">
+              <span>${groupItems.length} total</span>
+              <span>${builders.length} builder</span>
+              <span>${anonymous.length} anon</span>
+              ${others.length ? `<span>${others.length} other</span>` : ""}
+            </div>
+          </div>
+          <div class="bot-column-body">
+            ${botSectionHtml("Builder tests", "bot-section-builder", builders)}
+            ${botSectionHtml("Anonymous", "bot-section-anonymous", anonymous)}
+            ${others.length ? botSectionHtml("Other users", "bot-section-other", others) : ""}
+          </div>
+        </div>`;
     })
     .join("");
+
+  botMapGrid.querySelectorAll(".bot-card").forEach((el) => {
+    el.addEventListener("click", () => {
+      selectedId = el.dataset.id;
+      renderList();
+      loadDetail(selectedId);
+    });
+  });
+}
+
+function updateLayoutMode() {
+  const mapOn = view === "conversations" && groupByBot;
+  workspace.classList.toggle("bot-map-mode", mapOn);
+  botMapView.hidden = !mapOn;
 }
 
 function renderList() {
+  updateLayoutMode();
+
+  if (view === "conversations" && groupByBot) {
+    renderBotMap();
+    return;
+  }
+
   if (view === "conversations") {
-    itemList.innerHTML = groupByBot
-      ? renderGroupedConversations()
-      : items.map(conversationItemHtml).join("");
+    itemList.innerHTML = items.map(conversationItemHtml).join("");
   } else {
     itemList.innerHTML = items.map(activityItemHtml).join("");
   }

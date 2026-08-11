@@ -349,13 +349,230 @@ body {
   flex: 1;
 }
 
+.workspace.bot-map-mode {
+  grid-template-columns: 1fr minmax(320px, 420px);
+}
+
+.workspace.bot-map-mode .sidebar {
+  display: none;
+}
+
+.workspace.bot-map-mode .bot-map {
+  display: flex;
+}
+
 .sidebar {
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 73px);
-  max-height: calc(100vh - 73px);
+  min-height: 0;
+  max-height: calc(100vh - 140px);
+}
+
+.bot-map {
+  display: none;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-height: calc(100vh - 140px);
+  background: #eef2f7;
+  border-right: 1px solid var(--border);
+}
+
+.bot-map-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.bot-map-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.legend-builder {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.legend-anonymous {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.legend-other {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.bot-map-grid {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  align-items: stretch;
+}
+
+.bot-column {
+  flex: 0 0 280px;
+  width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  box-shadow: var(--shadow);
+}
+
+.bot-column-header {
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+  border-radius: 12px 12px 0 0;
+}
+
+.bot-column-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+.bot-column-stats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.bot-column-stats span {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.bot-column-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bot-section {
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.bot-section-builder {
+  background: #f8fbff;
+  border: 1px solid #dbeafe;
+}
+
+.bot-section-anonymous {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.bot-section-other {
+  background: #f6fdf9;
+  border: 1px solid #d1fae5;
+}
+
+.bot-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+
+.bot-section-builder .bot-section-label {
+  color: #1d4ed8;
+}
+
+.bot-section-other .bot-section-label {
+  color: #047857;
+}
+
+.bot-card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  display: block;
+}
+
+.bot-card:hover {
+  border-color: #93c5fd;
+}
+
+.bot-card.selected {
+  background: var(--primary-soft);
+  border-color: #93c5fd;
+}
+
+.bot-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.bot-card-user {
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-card-date {
+  font-size: 0.72rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.bot-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.bot-section-empty {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  padding: 4px 2px;
 }
 
 .sidebar-head {
@@ -478,8 +695,9 @@ body {
 
 .detail {
   overflow-y: auto;
-  max-height: calc(100vh - 73px);
+  max-height: calc(100vh - 140px);
   padding: 24px 28px 48px;
+  min-width: 0;
 }
 
 .empty,
@@ -710,9 +928,17 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .workspace.bot-map-mode {
+    grid-template-columns: 1fr;
+  }
+
   .sidebar {
     max-height: 42vh;
     min-height: 42vh;
+  }
+
+  .bot-map {
+    max-height: 48vh;
   }
 
   .detail {
