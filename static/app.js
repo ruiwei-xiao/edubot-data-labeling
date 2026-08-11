@@ -4,6 +4,7 @@ let selectedId = null;
 let filterData = { activities: {}, conversations: {} };
 let needsAttention = false;
 let builderOnly = false;
+let groupByBot = false;
 let searchTimer = null;
 
 const appSelect = document.getElementById("appSelect");
@@ -17,6 +18,8 @@ const listCount = document.getElementById("listCount");
 const totalCount = document.getElementById("totalCount");
 const needsAttentionBtn = document.getElementById("needsAttentionBtn");
 const builderBtn = document.getElementById("builderBtn");
+const groupByBotBtn = document.getElementById("groupByBotBtn");
+const shortcutsBar = document.getElementById("shortcutsBar");
 const attentionToggle = document.getElementById("attentionToggle");
 const attentionLabel = document.getElementById("attentionLabel");
 const tabConversations = document.getElementById("tabConversations");
@@ -148,7 +151,11 @@ function setView(next) {
   tabConversations.classList.toggle("active", view === "conversations");
   tabActivities.classList.toggle("active", view === "activities");
   modelFilterWrap.style.display = view === "activities" ? "" : "none";
-  builderBtn.style.display = view === "conversations" ? "" : "none";
+  shortcutsBar.style.display = view === "conversations" ? "" : "none";
+  if (view !== "conversations") {
+    groupByBot = false;
+    groupByBotBtn.classList.remove("active");
+  }
   attentionLabel.textContent =
     view === "conversations"
       ? "Jump to messages that need attention"
@@ -256,62 +263,87 @@ async function loadList() {
   await loadDetail(selectedId);
 }
 
+function conversationItemHtml(c) {
+  return `
+    <button class="activity-item ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button">
+      <div class="item-top">
+        <div class="item-title">${escapeHtml(groupByBot ? c.user : c.title)}</div>
+        <div class="item-date">${escapeHtml(c.date)}</div>
+      </div>
+      <div class="item-bottom">
+        <div class="item-user">
+          <div class="avatar">${escapeHtml(initials(c.user))}</div>
+          <div class="user-name">${escapeHtml(groupByBot ? c.title : c.user)}</div>
+        </div>
+        <div class="item-meta">
+          ${c.is_builder ? `<span class="tag">Builder</span>` : ""}
+          ${c.has_flagged ? `<span class="tag" style="background:#fef2f2;color:#b91c1c">Flagged</span>` : ""}
+          <span class="msg-count" title="Messages">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+            ${c.message_count}
+          </span>
+        </div>
+      </div>
+    </button>`;
+}
+
+function activityItemHtml(a) {
+  return `
+    <button class="activity-item ${a.id === selectedId ? "selected" : ""}" data-id="${a.id}" type="button">
+      <div class="item-top">
+        <div class="item-title">${escapeHtml(a.title)}</div>
+        <div class="item-date">${escapeHtml(a.date)}</div>
+      </div>
+      <div class="item-bottom">
+        <div class="item-user">
+          <div class="avatar">${escapeHtml(initials(a.creator))}</div>
+          <div class="user-name">${escapeHtml(a.creator)}</div>
+        </div>
+        <div class="item-meta">
+          ${a.model ? `<span class="tag">${escapeHtml(a.model)}</span>` : ""}
+          <span class="msg-count" title="Reference files">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            </svg>
+            ${a.reference_file_count}
+          </span>
+        </div>
+      </div>
+    </button>`;
+}
+
+function renderGroupedConversations() {
+  const groups = new Map();
+  items.forEach((c) => {
+    const key = c.title || "Untitled";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(c);
+  });
+
+  const sortedKeys = [...groups.keys()].sort((a, b) => a.localeCompare(b));
+  return sortedKeys
+    .map((key) => {
+      const groupItems = groups.get(key);
+      return `
+        <div class="group-header">
+          <div class="group-header-title">${escapeHtml(key)}</div>
+          <div class="group-header-count">${groupItems.length}</div>
+        </div>
+        ${groupItems.map(conversationItemHtml).join("")}
+      `;
+    })
+    .join("");
+}
+
 function renderList() {
   if (view === "conversations") {
-    itemList.innerHTML = items
-      .map(
-        (c) => `
-      <button class="activity-item ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button">
-        <div class="item-top">
-          <div class="item-title">${escapeHtml(c.title)}</div>
-          <div class="item-date">${escapeHtml(c.date)}</div>
-        </div>
-        <div class="item-bottom">
-          <div class="item-user">
-            <div class="avatar">${escapeHtml(initials(c.user))}</div>
-            <div class="user-name">${escapeHtml(c.user)}</div>
-          </div>
-          <div class="item-meta">
-            ${c.is_builder ? `<span class="tag">Builder</span>` : ""}
-            ${c.has_flagged ? `<span class="tag" style="background:#fef2f2;color:#b91c1c">Flagged</span>` : ""}
-            <span class="msg-count" title="Messages">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-              </svg>
-              ${c.message_count}
-            </span>
-          </div>
-        </div>
-      </button>`
-      )
-      .join("");
+    itemList.innerHTML = groupByBot
+      ? renderGroupedConversations()
+      : items.map(conversationItemHtml).join("");
   } else {
-    itemList.innerHTML = items
-      .map(
-        (a) => `
-      <button class="activity-item ${a.id === selectedId ? "selected" : ""}" data-id="${a.id}" type="button">
-        <div class="item-top">
-          <div class="item-title">${escapeHtml(a.title)}</div>
-          <div class="item-date">${escapeHtml(a.date)}</div>
-        </div>
-        <div class="item-bottom">
-          <div class="item-user">
-            <div class="avatar">${escapeHtml(initials(a.creator))}</div>
-            <div class="user-name">${escapeHtml(a.creator)}</div>
-          </div>
-          <div class="item-meta">
-            ${a.model ? `<span class="tag">${escapeHtml(a.model)}</span>` : ""}
-            <span class="msg-count" title="Reference files">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              </svg>
-              ${a.reference_file_count}
-            </span>
-          </div>
-        </div>
-      </button>`
-      )
-      .join("");
+    itemList.innerHTML = items.map(activityItemHtml).join("");
   }
 
   itemList.querySelectorAll(".activity-item").forEach((el) => {
@@ -491,7 +523,8 @@ function wirePromptActions(promptText) {
 
 function setNeedsAttention(on) {
   needsAttention = on;
-  needsAttentionBtn.classList.toggle("active", on);
+  needsAttentionBtn.classList.toggle("danger-active", on);
+  needsAttentionBtn.classList.toggle("active", false);
   attentionToggle.checked = on;
   onFilterChanged();
 }
@@ -500,6 +533,12 @@ function setBuilderOnly(on) {
   builderOnly = on;
   builderBtn.classList.toggle("active", on);
   onFilterChanged();
+}
+
+function setGroupByBot(on) {
+  groupByBot = on;
+  groupByBotBtn.classList.toggle("active", on);
+  renderList();
 }
 
 tabConversations.addEventListener("click", () => setView("conversations"));
@@ -512,6 +551,7 @@ searchInput.addEventListener("input", () => {
 needsAttentionBtn.addEventListener("click", () => setNeedsAttention(!needsAttention));
 attentionToggle.addEventListener("change", () => setNeedsAttention(attentionToggle.checked));
 builderBtn.addEventListener("click", () => setBuilderOnly(!builderOnly));
+groupByBotBtn.addEventListener("click", () => setGroupByBot(!groupByBot));
 
 (async function init() {
   try {
