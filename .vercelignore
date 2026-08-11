@@ -1,0 +1,7 @@
+venv
+.git
+data/cache
+data/playlab_activities_with_messages - all_data_origin.csv
+__pycache__
+*.pyc
+.DS_Store
