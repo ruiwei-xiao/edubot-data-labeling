@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+*.json
+!package.json
+
+# Large local dataset (109MB — exceeds GitHub 100MB limit)
+data/playlab_activities_with_messages - all_data_origin.csv
