@@ -117,7 +117,8 @@ body {
 
 .topbar-row-controls {
   align-items: stretch;
-  gap: 12px;
+  gap: 0;
+  flex-wrap: nowrap;
 }
 
 .control-panel {
@@ -128,16 +129,56 @@ body {
   background: #f8fafc;
   border: 1px solid var(--border);
   border-radius: 12px;
+  min-width: 0;
 }
 
 .filters-panel {
-  flex: 1;
-  min-width: 280px;
+  flex: 0 0 var(--filters-panel-w, 58%);
+  width: var(--filters-panel-w, 58%);
+  max-width: calc(100% - 230px);
+  min-width: 240px;
 }
 
 .shortcuts-panel {
-  flex: 0 0 auto;
-  min-width: 220px;
+  flex: 1 1 auto;
+  min-width: 200px;
+}
+
+.controls-split-handle {
+  flex: 0 0 10px;
+  width: 10px;
+  cursor: col-resize;
+  align-self: stretch;
+  position: relative;
+  z-index: 3;
+  background: linear-gradient(90deg, transparent, #dbe3ef 40%, #dbe3ef 60%, transparent);
+  border-radius: 999px;
+  margin: 2px 0;
+}
+
+.controls-split-handle::before {
+  content: "";
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  left: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.controls-split-handle:hover::before,
+.topbar-row-controls.resizing .controls-split-handle::before {
+  background: #2563eb;
+}
+
+.topbar-row-controls.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.topbar-row-controls.resizing .control-panel {
+  pointer-events: none;
 }
 
 .panel-label {
@@ -424,6 +465,163 @@ body {
 
 .workspace.bot-map-mode .split-handle {
   display: block;
+}
+
+.workspace.cost-mode {
+  grid-template-columns: 1fr;
+}
+
+.workspace.cost-mode .sidebar,
+.workspace.cost-mode .bot-map,
+.workspace.cost-mode .split-handle,
+.workspace.cost-mode .detail {
+  display: none !important;
+}
+
+.workspace.cost-mode .cost-analysis {
+  display: flex;
+}
+
+.cost-analysis {
+  display: none;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-height: calc(100vh - 140px);
+  background: #f8fafc;
+  border-right: 1px solid var(--border);
+}
+
+.cost-analysis-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.cost-analysis-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.cost-analysis-sub {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.cost-analysis-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 28px;
+}
+
+.cost-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cost-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.cost-stat .label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cost-stat .value {
+  margin-top: 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-note {
+  margin: 0 0 18px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.cost-section {
+  margin-bottom: 22px;
+}
+
+.cost-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+}
+
+.cost-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.cost-table th,
+.cost-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cost-table th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  font-weight: 700;
+  z-index: 1;
+}
+
+.cost-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.cost-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cost-table .cost {
+  font-weight: 700;
+  color: #14532d;
+}
+
+.cost-table .bot-name {
+  max-width: 280px;
+  font-weight: 600;
+}
+
+.cost-warn {
+  color: #b45309;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .split-handle {
@@ -1859,6 +2057,23 @@ body {
 }
 
 @media (max-width: 960px) {
+  .topbar-row-controls {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .controls-split-handle {
+    display: none;
+  }
+
+  .filters-panel,
+  .shortcuts-panel {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
   .workspace {
     grid-template-columns: 1fr;
   }

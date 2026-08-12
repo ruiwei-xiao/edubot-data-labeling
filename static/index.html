@@ -67,12 +67,15 @@
           </div>
         </section>
 
+        <div class="controls-split-handle" id="controlsSplitHandle" title="Drag to resize"></div>
+
         <section class="control-panel shortcuts-panel" id="shortcutsBar">
           <div class="panel-label">Shortcuts</div>
           <div class="shortcut-actions">
             <button id="groupByBotBtn" class="chip-btn" type="button" title="Grid map: one column per bot">Group by bot</button>
             <button id="groupByUserBtn" class="chip-btn" type="button" title="Within each bot, stack Builder / Anonymous / Other">Group by user</button>
             <button id="sortByTimeBtn" class="chip-btn" type="button" title="Within each bot, interleave conversations by time">Sort by time</button>
+            <button id="costAnalysisBtn" class="chip-btn" type="button" title="Estimate spend per bot from models + message volume">Cost analysis</button>
             <button id="needsAttentionBtn" class="chip-btn" type="button" title="Only flagged conversations">Needs attention</button>
           </div>
         </section>
@@ -126,6 +129,19 @@
           <p>Filter by teacher or app, then pick from the list.</p>
         </div>
       </main>
+
+      <section class="cost-analysis" id="costAnalysisView" hidden>
+        <div class="cost-analysis-toolbar">
+          <div>
+            <div class="cost-analysis-title">Cost analysis</div>
+            <div class="cost-analysis-sub" id="costAnalysisSub">Estimates from conversation text × model rates</div>
+          </div>
+          <button type="button" class="chip-btn" id="costAnalysisCloseBtn">Close</button>
+        </div>
+        <div class="cost-analysis-body" id="costAnalysisBody">
+          <div class="empty">Open Cost analysis to compute spend.</div>
+        </div>
+      </section>
     </div>
   </div>
 

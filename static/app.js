@@ -5,6 +5,8 @@ let needsAttention = false;
 let groupByBot = true;
 let groupByUser = true;
 let sortByTime = false;
+let costAnalysisOn = false;
+let costAnalysisData = null;
 const audienceFilter = { builder: true, anonymous: true, other: true };
 let botSort = { key: "total", dir: "desc" };
 let lastStackMax = { builder: 1, anonymous: 1, other: 0, total: 1 };
@@ -46,6 +48,11 @@ const needsAttentionBtn = document.getElementById("needsAttentionBtn");
 const groupByBotBtn = document.getElementById("groupByBotBtn");
 const groupByUserBtn = document.getElementById("groupByUserBtn");
 const sortByTimeBtn = document.getElementById("sortByTimeBtn");
+const costAnalysisBtn = document.getElementById("costAnalysisBtn");
+const costAnalysisView = document.getElementById("costAnalysisView");
+const costAnalysisBody = document.getElementById("costAnalysisBody");
+const costAnalysisSub = document.getElementById("costAnalysisSub");
+const costAnalysisCloseBtn = document.getElementById("costAnalysisCloseBtn");
 const botMapLegend = document.querySelector(".bot-map-legend");
 const colZoomOut = document.getElementById("colZoomOut");
 const colZoomIn = document.getElementById("colZoomIn");
@@ -58,8 +65,10 @@ const labelerStatus = document.getElementById("labelerStatus");
 let labelerConfirmed = false;
 
 const DETAIL_WIDTH_KEY = "playlab_detail_width";
+const FILTERS_PANEL_W_KEY = "playlab_filters_panel_w";
 const COL_WIDTH_KEY = "playlab_bot_col_width";
 let detailWidth = Number(localStorage.getItem(DETAIL_WIDTH_KEY)) || 420;
+let filtersPanelWidthPct = Number(localStorage.getItem(FILTERS_PANEL_W_KEY)) || 58;
 let botColWidth = Number(localStorage.getItem(COL_WIDTH_KEY)) || 280;
 const COL_W_MIN = 12;
 const COL_W_MAX = 320;
@@ -190,6 +199,11 @@ async function refreshCascadingFilters() {
 
 async function onFilterChanged() {
   await refreshCascadingFilters();
+  if (costAnalysisOn) {
+    updateLayoutMode();
+    await loadCostAnalysis();
+    return;
+  }
   await loadList();
 }
 
@@ -209,6 +223,11 @@ function queryParams() {
 }
 
 async function loadList() {
+  if (costAnalysisOn) {
+    updateLayoutMode();
+    await loadCostAnalysis();
+    return;
+  }
   itemList.innerHTML = `<div class="empty">Loading…</div>`;
   const res = await fetch(`/api/conversations?${queryParams().toString()}`);
   const data = await res.json();
@@ -736,13 +755,169 @@ function applyDetailWidth() {
 }
 
 function updateLayoutMode() {
-  const mapOn = groupByBot;
+  const costOn = costAnalysisOn;
+  const mapOn = groupByBot && !costOn;
+  workspace.classList.toggle("cost-mode", costOn);
   workspace.classList.toggle("bot-map-mode", mapOn);
-  botMapView.hidden = !mapOn;
-  splitHandle.hidden = !mapOn;
+  if (costAnalysisView) costAnalysisView.hidden = !costOn;
+  if (botMapView) botMapView.hidden = !mapOn;
+  if (splitHandle) splitHandle.hidden = !mapOn;
+  if (detailPane) detailPane.hidden = !!costOn;
+  if (document.getElementById("sidebar")) {
+    document.getElementById("sidebar").hidden = !!costOn || mapOn;
+  }
   if (mapOn) {
     applyDetailWidth();
     applyBotColWidth(false);
+  }
+}
+
+function formatUsd(n) {
+  const v = Number(n) || 0;
+  if (v >= 100) return `$${v.toFixed(2)}`;
+  if (v >= 1) return `$${v.toFixed(2)}`;
+  if (v >= 0.01) return `$${v.toFixed(3)}`;
+  return `$${v.toFixed(4)}`;
+}
+
+function formatTokens(n) {
+  const v = Number(n) || 0;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}k`;
+  return String(v);
+}
+
+function renderCostAnalysis(data) {
+  if (!costAnalysisBody) return;
+  const summary = data.summary || {};
+  const bots = data.bots || [];
+  const models = data.models || [];
+
+  if (costAnalysisSub) {
+    costAnalysisSub.textContent = `${summary.bots || 0} bots · ${summary.conversations || 0} conversations · est. ${formatUsd(
+      summary.cost_usd
+    )} · respects current filters`;
+  }
+
+  const modelRows = models
+    .map(
+      (m) => `
+      <tr>
+        <td>${escapeHtml(m.model)}</td>
+        <td class="num">${m.bots}</td>
+        <td class="num">${m.conversations}</td>
+        <td class="num">${formatTokens(m.input_tokens)}</td>
+        <td class="num">${formatTokens(m.output_tokens)}</td>
+        <td class="num cost">${formatUsd(m.cost_usd)}</td>
+      </tr>`
+    )
+    .join("");
+
+  const botRows = bots
+    .map(
+      (b) => `
+      <tr>
+        <td class="bot-name">${escapeHtml(b.bot)}</td>
+        <td>${escapeHtml(b.model)}${b.model_matched ? "" : ' <span class="cost-warn">est.</span>'}</td>
+        <td class="num">${b.conversations}</td>
+        <td class="num">${b.messages}</td>
+        <td class="num">${formatTokens(b.input_tokens)}</td>
+        <td class="num">${formatTokens(b.output_tokens)}</td>
+        <td class="num">${formatUsd(b.input_cost_usd)}</td>
+        <td class="num">${formatUsd(b.output_cost_usd)}</td>
+        <td class="num cost">${formatUsd(b.cost_usd)}</td>
+      </tr>`
+    )
+    .join("");
+
+  costAnalysisBody.innerHTML = `
+    <div class="cost-summary">
+      <div class="cost-stat">
+        <div class="label">Estimated total</div>
+        <div class="value">${formatUsd(summary.cost_usd)}</div>
+      </div>
+      <div class="cost-stat">
+        <div class="label">Input tokens</div>
+        <div class="value">${formatTokens(summary.input_tokens)}</div>
+      </div>
+      <div class="cost-stat">
+        <div class="label">Output tokens</div>
+        <div class="value">${formatTokens(summary.output_tokens)}</div>
+      </div>
+      <div class="cost-stat">
+        <div class="label">Unknown model convs</div>
+        <div class="value">${summary.unknown_model_conversations || 0}</div>
+      </div>
+    </div>
+
+    <p class="cost-note">
+      Tokens ≈ characters / 4. Each bot reply billed with system prompt + prior messages as input.
+      Rates are approximate public list prices for Playlab model names. Not an invoice.
+    </p>
+
+    <div class="cost-section">
+      <h3>By model</h3>
+      <div class="cost-table-wrap">
+        <table class="cost-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th class="num">Bots</th>
+              <th class="num">Convs</th>
+              <th class="num">Input</th>
+              <th class="num">Output</th>
+              <th class="num">Cost</th>
+            </tr>
+          </thead>
+          <tbody>${modelRows || `<tr><td colspan="6">No data</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="cost-section">
+      <h3>By bot</h3>
+      <div class="cost-table-wrap">
+        <table class="cost-table">
+          <thead>
+            <tr>
+              <th>Bot</th>
+              <th>Model</th>
+              <th class="num">Convs</th>
+              <th class="num">Msgs</th>
+              <th class="num">Input</th>
+              <th class="num">Output</th>
+              <th class="num">In $</th>
+              <th class="num">Out $</th>
+              <th class="num">Cost</th>
+            </tr>
+          </thead>
+          <tbody>${botRows || `<tr><td colspan="9">No data</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+async function loadCostAnalysis() {
+  if (!costAnalysisBody) return;
+  costAnalysisBody.innerHTML = `<div class="empty">Computing cost estimates…</div>`;
+  const res = await fetch(`/api/cost-analysis?${queryParams().toString()}`);
+  if (!res.ok) {
+    costAnalysisBody.innerHTML = `<div class="empty">Failed to load cost analysis</div>`;
+    return;
+  }
+  costAnalysisData = await res.json();
+  renderCostAnalysis(costAnalysisData);
+}
+
+async function setCostAnalysis(on) {
+  costAnalysisOn = on;
+  syncShortcutButtons();
+  updateLayoutMode();
+  if (costAnalysisOn) {
+    await loadCostAnalysis();
+  } else {
+    renderList();
   }
 }
 
@@ -783,6 +958,7 @@ function wireSplitHandle() {
 
 function renderList() {
   updateLayoutMode();
+  if (costAnalysisOn) return;
 
   if (groupByBot) {
     renderBotMap();
@@ -1295,9 +1471,10 @@ function wirePromptActions(promptText) {
 }
 
 function syncShortcutButtons() {
-  groupByBotBtn?.classList.toggle("active", groupByBot);
-  groupByUserBtn?.classList.toggle("active", groupByUser);
-  sortByTimeBtn?.classList.toggle("active", sortByTime);
+  groupByBotBtn?.classList.toggle("active", groupByBot && !costAnalysisOn);
+  groupByUserBtn?.classList.toggle("active", groupByUser && !costAnalysisOn);
+  sortByTimeBtn?.classList.toggle("active", sortByTime && !costAnalysisOn);
+  costAnalysisBtn?.classList.toggle("active", costAnalysisOn);
   needsAttentionBtn?.classList.toggle("danger-active", needsAttention);
 }
 
@@ -1308,27 +1485,28 @@ function setNeedsAttention(on) {
 }
 
 function setGroupByBot(on) {
+  if (costAnalysisOn) costAnalysisOn = false;
   groupByBot = on;
   syncShortcutButtons();
   renderList();
 }
 
 function setGroupByUser(on) {
+  if (costAnalysisOn) costAnalysisOn = false;
   groupByUser = on;
   if (groupByUser) sortByTime = false;
   else if (!sortByTime) sortByTime = true;
   syncShortcutButtons();
-  if (groupByBot) renderBotMap();
-  else renderList();
+  renderList();
 }
 
 function setSortByTime(on) {
+  if (costAnalysisOn) costAnalysisOn = false;
   sortByTime = on;
   if (sortByTime) groupByUser = false;
   else if (!groupByUser) groupByUser = true;
   syncShortcutButtons();
-  if (groupByBot) renderBotMap();
-  else renderList();
+  renderList();
 }
 
 function toggleAudienceFilter(key) {
@@ -1349,6 +1527,8 @@ needsAttentionBtn.addEventListener("click", () => setNeedsAttention(!needsAttent
 groupByBotBtn.addEventListener("click", () => setGroupByBot(!groupByBot));
 groupByUserBtn?.addEventListener("click", () => setGroupByUser(!groupByUser));
 sortByTimeBtn?.addEventListener("click", () => setSortByTime(!sortByTime));
+costAnalysisBtn?.addEventListener("click", () => setCostAnalysis(!costAnalysisOn));
+costAnalysisCloseBtn?.addEventListener("click", () => setCostAnalysis(false));
 if (botMapLegend) {
   botMapLegend.addEventListener("click", (e) => {
     const sortEl = e.target.closest("[data-sort]");

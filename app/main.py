@@ -9,6 +9,7 @@ from pathlib import Path
 
 from app.bot_labels import list_labels, load_labels, set_bot_label
 from app.message_labels import list_message_labels, load_message_labels, set_message_label
+from app.cost_analysis import compute_cost_analysis
 from app.conversations_loader import (
     conversation_list_item,
     filter_conversations,
@@ -132,6 +133,23 @@ async def put_message_label(conv_id: str, message_number: str, body: MessageLabe
         raise HTTPException(status_code=403, detail=str(err)) from err
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
+
+
+@app.get("/api/cost-analysis")
+async def cost_analysis(
+    user: Optional[str] = Query(default=None),
+    app: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None),
+    builder_only: bool = Query(default=False),
+    needs_attention: bool = Query(default=False),
+):
+    return compute_cost_analysis(
+        user=user,
+        app=app,
+        q=q,
+        builder_only=builder_only,
+        needs_attention=needs_attention,
+    )
 
 
 @app.get("/api/conversations")
