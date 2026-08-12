@@ -79,13 +79,22 @@
         <div class="bot-map-toolbar">
           <div id="botMapCount" class="list-count">0 bots</div>
           <div class="bot-map-legend" role="group" aria-label="Audience filters">
-            <button type="button" class="legend-item legend-builder active" data-audience="builder" title="Show/hide Builder tests">Builder tests</button>
-            <button type="button" class="legend-item legend-anonymous active" data-audience="anonymous" title="Show/hide Anonymous">Anonymous</button>
-            <button type="button" class="legend-item legend-other active" data-audience="other" title="Show/hide Other users">Other users</button>
+            <button type="button" class="legend-item legend-builder active" data-audience="builder" title="Show/hide Builder tests">
+              <span class="legend-text">Builder</span>
+              <span class="legend-sort" data-sort="builder" title="Sort by Builder count">↕</span>
+            </button>
+            <button type="button" class="legend-item legend-anonymous active" data-audience="anonymous" title="Show/hide Anonymous">
+              <span class="legend-text">Anonymous</span>
+              <span class="legend-sort" data-sort="anonymous" title="Sort by Anonymous count">↕</span>
+            </button>
+            <button type="button" class="legend-item legend-other active" data-audience="other" title="Show/hide Other users">
+              <span class="legend-text">Other</span>
+              <span class="legend-sort" data-sort="other" title="Sort by Other users count">↕</span>
+            </button>
           </div>
           <div class="bot-map-zoom" title="Ctrl/⌘ + scroll to zoom column width">
             <button type="button" class="zoom-btn" id="colZoomOut" aria-label="Narrower columns">−</button>
-            <input type="range" id="colZoomRange" min="36" max="320" step="4" value="280" aria-label="Column width" />
+            <input type="range" id="colZoomRange" min="12" max="320" step="2" value="280" aria-label="Column width" />
             <button type="button" class="zoom-btn" id="colZoomIn" aria-label="Wider columns">+</button>
             <button type="button" class="zoom-fit" id="colZoomFit" title="Fit all columns on screen">Fit</button>
             <span class="zoom-label" id="colZoomLabel">280px</span>

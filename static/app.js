@@ -2,8 +2,10 @@ let items = [];
 let selectedId = null;
 let filterData = { conversations: {} };
 let needsAttention = false;
-let groupByBot = false;
+let groupByBot = true;
 const audienceFilter = { builder: true, anonymous: true, other: true };
+let botSort = { key: "total", dir: "desc" };
+let lastStackMax = { builder: 1, anonymous: 1, other: 0 };
 let searchTimer = null;
 
 const appSelect = document.getElementById("appSelect");
@@ -31,7 +33,7 @@ const DETAIL_WIDTH_KEY = "playlab_detail_width";
 const COL_WIDTH_KEY = "playlab_bot_col_width";
 let detailWidth = Number(localStorage.getItem(DETAIL_WIDTH_KEY)) || 420;
 let botColWidth = Number(localStorage.getItem(COL_WIDTH_KEY)) || 280;
-const COL_W_MIN = 36;
+const COL_W_MIN = 12;
 const COL_W_MAX = 320;
 
 function initials(name) {
@@ -242,15 +244,18 @@ function botCardHtml(c) {
     </button>`;
 }
 
-function botSectionHtml(label, className, sectionItems) {
+function botSectionHtml(label, className, sectionItems, { allowEmpty = false } = {}) {
+  if (!sectionItems.length && !allowEmpty) return "";
+  const empty = !sectionItems.length;
+  const cards = empty ? "" : sectionItems.map(botCardHtml).join("");
+  const body =
+    className === "bot-section-builder"
+      ? `<div class="bot-section-stack">${cards}</div>`
+      : cards;
   return `
-    <div class="bot-section ${className}">
+    <div class="bot-section ${className}${empty ? " is-empty" : ""}" title="${escapeHtml(label)} · ${sectionItems.length}">
       <div class="bot-section-label">${escapeHtml(label)} · ${sectionItems.length}</div>
-      ${
-        sectionItems.length
-          ? sectionItems.map(botCardHtml).join("")
-          : `<div class="bot-section-empty">None</div>`
-      }
+      ${body}
     </div>`;
 }
 
@@ -260,13 +265,41 @@ function conversationAudience(c) {
   return "other";
 }
 
+function audienceCount(groupItems, key) {
+  if (key === "builder") return groupItems.filter((c) => c.is_builder).length;
+  if (key === "anonymous") return groupItems.filter((c) => !c.is_builder && c.user === "Anonymous").length;
+  if (key === "other") return groupItems.filter((c) => !c.is_builder && c.user !== "Anonymous").length;
+  return groupItems.length;
+}
+
 function syncAudienceLegend() {
   if (!botMapLegend) return;
   botMapLegend.querySelectorAll("[data-audience]").forEach((btn) => {
     const key = btn.dataset.audience;
     btn.classList.toggle("active", !!audienceFilter[key]);
+    btn.classList.toggle("sorting", botSort.key === key);
     btn.setAttribute("aria-pressed", audienceFilter[key] ? "true" : "false");
+    const sortEl = btn.querySelector(".legend-sort");
+    if (sortEl) {
+      if (botSort.key === key) {
+        sortEl.textContent = botSort.dir === "desc" ? "↓" : "↑";
+        sortEl.setAttribute("aria-label", `Sorted by ${key} ${botSort.dir}`);
+      } else {
+        sortEl.textContent = "↕";
+        sortEl.setAttribute("aria-label", `Sort by ${key}`);
+      }
+    }
   });
+}
+
+function setBotSort(key) {
+  if (botSort.key === key) {
+    botSort.dir = botSort.dir === "desc" ? "asc" : "desc";
+  } else {
+    botSort.key = key;
+    botSort.dir = "desc";
+  }
+  renderBotMap();
 }
 
 function renderBotMap() {
@@ -279,7 +312,9 @@ function renderBotMap() {
   });
 
   const sortedKeys = [...groups.keys()].sort((a, b) => {
-    const diff = groups.get(b).length - groups.get(a).length;
+    const ca = audienceCount(groups.get(a), botSort.key);
+    const cb = audienceCount(groups.get(b), botSort.key);
+    const diff = botSort.dir === "desc" ? cb - ca : ca - cb;
     return diff !== 0 ? diff : a.localeCompare(b);
   });
 
@@ -288,8 +323,14 @@ function renderBotMap() {
 
   if (!sortedKeys.length) {
     botMapGrid.innerHTML = `<div class="empty">No conversations for the selected audience filters.</div>`;
+    botMapView.classList.remove("fit-height");
     return;
   }
+
+  const useMidline = audienceFilter.builder && audienceFilter.anonymous;
+  let maxBuilder = 0;
+  let maxAnonymous = 0;
+  let maxOther = 0;
 
   botMapGrid.innerHTML = sortedKeys
     .map((key) => {
@@ -297,6 +338,23 @@ function renderBotMap() {
       const builders = groupItems.filter((c) => c.is_builder);
       const anonymous = groupItems.filter((c) => !c.is_builder && c.user === "Anonymous");
       const others = groupItems.filter((c) => !c.is_builder && c.user !== "Anonymous");
+      maxBuilder = Math.max(maxBuilder, builders.length);
+      maxAnonymous = Math.max(maxAnonymous, anonymous.length);
+      maxOther = Math.max(maxOther, others.length);
+
+      const builderHtml = audienceFilter.builder
+        ? botSectionHtml("Builder tests", "bot-section-builder", builders, { allowEmpty: useMidline })
+        : "";
+      const anonHtml = audienceFilter.anonymous
+        ? botSectionHtml("Anonymous", "bot-section-anonymous", anonymous, { allowEmpty: useMidline })
+        : "";
+      const otherHtml = audienceFilter.other
+        ? botSectionHtml("Other users", "bot-section-other", others)
+        : "";
+
+      const bodyHtml = useMidline
+        ? `${builderHtml}<div class="bot-half-bottom">${anonHtml}${otherHtml}</div>`
+        : `${builderHtml}${anonHtml}${otherHtml}`;
 
       return `
         <div class="bot-column" title="${escapeHtml(`${key} · ${groupItems.length} conversations`)}">
@@ -306,17 +364,18 @@ function renderBotMap() {
               <span>${groupItems.length} total</span>
               ${audienceFilter.builder ? `<span>${builders.length} builder</span>` : ""}
               ${audienceFilter.anonymous ? `<span>${anonymous.length} anon</span>` : ""}
-              ${audienceFilter.other && others.length ? `<span>${others.length} other</span>` : ""}
+              ${audienceFilter.other ? `<span>${others.length} other</span>` : ""}
             </div>
           </div>
-          <div class="bot-column-body">
-            ${audienceFilter.builder ? botSectionHtml("Builder tests", "bot-section-builder", builders) : ""}
-            ${audienceFilter.anonymous ? botSectionHtml("Anonymous", "bot-section-anonymous", anonymous) : ""}
-            ${audienceFilter.other && others.length ? botSectionHtml("Other users", "bot-section-other", others) : ""}
+          <div class="bot-column-body${useMidline ? " midline" : ""}">
+            ${bodyHtml}
           </div>
         </div>`;
     })
     .join("");
+
+  lastStackMax = { builder: maxBuilder, anonymous: maxAnonymous, other: maxOther };
+  applyBotMapFitHeight();
 
   botMapGrid.querySelectorAll(".bot-card").forEach((el) => {
     el.addEventListener("click", () => {
@@ -325,6 +384,45 @@ function renderBotMap() {
       loadDetail(selectedId);
     });
   });
+}
+
+function stackUnitPx(density) {
+  if (density === "overview") return 9; // 8px card + 1px gap
+  if (density === "narrow") return 26;
+  if (density === "compact") return 42;
+  return 52;
+}
+
+function applyBotMapFitHeight() {
+  if (!botMapView || botMapView.hidden || !groupByBot) {
+    botMapView?.classList.remove("fit-height");
+    return;
+  }
+
+  const density = densityForWidth(botColWidth);
+  const unit = stackUnitPx(density);
+  const pad = density === "overview" ? 4 : 16;
+
+  const heightFor = (count, enabled) => {
+    if (!enabled) return 0;
+    const n = Math.max(count, 0);
+    // Keep a slim lane when the filter is on but every column is empty for this type
+    if (n === 0) return Math.ceil(unit * 1.1);
+    return Math.ceil(n * unit * 1.1 + pad);
+  };
+
+  const hb = heightFor(lastStackMax.builder, audienceFilter.builder);
+  const ha = heightFor(lastStackMax.anonymous, audienceFilter.anonymous);
+  const ho = heightFor(lastStackMax.other, audienceFilter.other);
+  const sectionGap = density === "overview" ? 2 : 8;
+  const gaps =
+    (hb && (ha || ho) ? sectionGap : 0) + (ha && ho ? sectionGap : 0);
+
+  botMapView.style.setProperty("--bot-h-builder", `${hb}px`);
+  botMapView.style.setProperty("--bot-h-anonymous", `${ha}px`);
+  botMapView.style.setProperty("--bot-h-other", `${ho}px`);
+  botMapView.style.setProperty("--bot-body-h", `${hb + ha + ho + gaps}px`);
+  botMapView.classList.add("fit-height");
 }
 
 function densityForWidth(w) {
@@ -336,13 +434,14 @@ function densityForWidth(w) {
 
 function applyBotColWidth(persist = true) {
   botColWidth = Math.min(COL_W_MAX, Math.max(COL_W_MIN, Math.round(botColWidth)));
-  const gap = botColWidth < 64 ? 3 : botColWidth < 120 ? 6 : 12;
+  const gap = botColWidth < 24 ? 1 : botColWidth < 64 ? 3 : botColWidth < 120 ? 6 : 12;
   botMapView.style.setProperty("--bot-col-w", `${botColWidth}px`);
   botMapView.style.setProperty("--bot-col-gap", `${gap}px`);
   botMapView.dataset.density = densityForWidth(botColWidth);
   if (colZoomRange) colZoomRange.value = String(botColWidth);
   if (colZoomLabel) colZoomLabel.textContent = `${botColWidth}px`;
   if (persist) localStorage.setItem(COL_WIDTH_KEY, String(botColWidth));
+  applyBotMapFitHeight();
 }
 
 function fitAllColumns() {
@@ -364,11 +463,11 @@ function wireColumnZoom() {
   applyBotColWidth(false);
 
   colZoomOut?.addEventListener("click", () => {
-    botColWidth -= botColWidth <= 80 ? 4 : 16;
+    botColWidth -= botColWidth <= 80 ? 2 : 16;
     applyBotColWidth();
   });
   colZoomIn?.addEventListener("click", () => {
-    botColWidth += botColWidth < 80 ? 4 : 16;
+    botColWidth += botColWidth < 80 ? 2 : 16;
     applyBotColWidth();
   });
   colZoomRange?.addEventListener("input", () => {
@@ -383,7 +482,7 @@ function wireColumnZoom() {
     (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      const step = botColWidth <= 80 ? 4 : 12;
+      const step = botColWidth <= 80 ? 2 : 12;
       botColWidth += e.deltaY < 0 ? step : -step;
       applyBotColWidth();
     },
@@ -642,6 +741,13 @@ needsAttentionBtn.addEventListener("click", () => setNeedsAttention(!needsAttent
 groupByBotBtn.addEventListener("click", () => setGroupByBot(!groupByBot));
 if (botMapLegend) {
   botMapLegend.addEventListener("click", (e) => {
+    const sortEl = e.target.closest("[data-sort]");
+    if (sortEl) {
+      e.preventDefault();
+      e.stopPropagation();
+      setBotSort(sortEl.dataset.sort);
+      return;
+    }
     const btn = e.target.closest("[data-audience]");
     if (!btn) return;
     toggleAudienceFilter(btn.dataset.audience);
@@ -655,6 +761,7 @@ if (botMapLegend) {
     wireSplitHandle();
     wireColumnZoom();
     applyDetailWidth();
+    groupByBotBtn.classList.toggle("active", groupByBot);
     await loadFilters();
     await loadList();
   } catch (err) {
