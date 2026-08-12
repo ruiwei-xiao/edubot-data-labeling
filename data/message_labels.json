@@ -1,0 +1,6 @@
+{
+  "bot_codes": ["success", "fail", "others"],
+  "user_codes": ["desired", "adversarial", "others"],
+  "labels": {},
+  "updated_at": ""
+}

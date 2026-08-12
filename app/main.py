@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from app.bot_labels import list_labels, load_labels, set_bot_label
+from app.message_labels import list_message_labels, load_message_labels, set_message_label
 from app.conversations_loader import (
     conversation_list_item,
     filter_conversations,
@@ -38,12 +39,20 @@ class BotLabelUpdate(BaseModel):
     editor: str = Field(default="")
 
 
+class MessageLabelUpdate(BaseModel):
+    codes: list[str] = Field(default_factory=list)
+    code: str = Field(default="")  # legacy single-value
+    editor: str = Field(default="")
+    role: str = Field(default="")
+
+
 @app.on_event("startup")
 def warmup():
     # Prefer cache built at deploy time; otherwise fetch/local fallback.
     load_activities()
     load_conversations()
     load_labels()
+    load_message_labels()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -99,6 +108,28 @@ async def put_bot_label(bot_title: str, body: BotLabelUpdate):
         raise HTTPException(status_code=400, detail=str(err)) from err
 
 
+@app.get("/api/message-labels")
+async def get_message_labels(conv_id: Optional[str] = Query(default=None)):
+    return list_message_labels(conv_id=conv_id)
+
+
+@app.put("/api/message-labels/{conv_id}/{message_number}")
+async def put_message_label(conv_id: str, message_number: str, body: MessageLabelUpdate):
+    try:
+        return set_message_label(
+            conv_id,
+            message_number,
+            body.codes,
+            body.editor,
+            body.role,
+            code=body.code,
+        )
+    except PermissionError as err:
+        raise HTTPException(status_code=403, detail=str(err)) from err
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+
 @app.get("/api/conversations")
 async def list_conversations(
     user: Optional[str] = Query(default=None),
@@ -128,6 +159,7 @@ async def conversation_detail(conv_id: str):
     payload = dict(conv)
     activity = find_activity_by_title(conv.get("title") or "")
     payload["app_config"] = activity_config_summary(activity) if activity else None
+    payload["message_labels"] = list_message_labels(conv_id=conv_id)["labels"]
     return payload
 
 
@@ -139,10 +171,12 @@ async def refresh_data():
     reload_activities()
     reload_conversations()
     load_labels(force=True)
+    load_message_labels(force=True)
     activities = load_activities(force_refresh=True)
     conversations = load_conversations(force_refresh=True)
     return {
         "activities": len(activities),
         "conversations": len(conversations),
         "bot_labels": len(list_labels()["labels"]),
+        "message_labels": len(list_message_labels()["labels"]),
     }

@@ -14,9 +14,13 @@ let botLabelCodes = [
   "No testing",
 ];
 let botLabels = {}; // bot_title -> { code, updated_by, updated_at }
+let messageLabels = {}; // `${convId}:${msgNum}` -> { codes, role, ... }
+const BOT_MSG_CODES = ["success", "fail", "others"];
+const USER_MSG_CODES = ["desired", "adversarial", "others"];
 const ALLOWED_LABELERS = new Set(["ruiwei", "jiayi"]);
 const LABELER_KEY = "playlab_labeler_name";
 const LABELS_LOCAL_KEY = "playlab_bot_labels_cache";
+const MSG_LABELS_LOCAL_KEY = "playlab_message_labels_cache";
 const CODE_SHORT = {
   "Iterative refinement": "IR",
   "Limited evaluation": "LE",
@@ -316,6 +320,7 @@ function confirmLabeler() {
   localStorage.setItem(`${LABELER_KEY}_confirmed`, labelerConfirmed ? "1" : "0");
   syncLabelerStatus();
   if (groupByBot) renderBotMap();
+  if (selectedId) loadDetail(selectedId);
 }
 
 function wireLabelerBox() {
@@ -332,6 +337,9 @@ function wireLabelerBox() {
     localStorage.setItem(`${LABELER_KEY}_confirmed`, "0");
     syncLabelerStatus();
     if (groupByBot) renderBotMap();
+    detailPane.querySelectorAll(".msg-label-chip").forEach((el) => {
+      el.disabled = true;
+    });
   });
 
   labelerNameInput.addEventListener("keydown", (e) => {
@@ -832,7 +840,153 @@ async function loadDetail(id) {
   renderConversationDetail(await res.json());
 }
 
+function messageLabelKey(convId, messageNumber) {
+  return `${convId}:${messageNumber}`;
+}
+
+function messageCodesForRole(role) {
+  const r = (role || "").toLowerCase();
+  if (r === "user") return USER_MSG_CODES;
+  if (r === "bot" || r === "assistant") return BOT_MSG_CODES;
+  return [];
+}
+
+function normalizeMsgCode(code) {
+  return String(code || "")
+    .trim()
+    .toLowerCase();
+}
+
+function selectedMessageCodes(row) {
+  if (!row) return [];
+  const fromList = Array.isArray(row.codes) ? row.codes : [];
+  const values = fromList.length ? fromList : row.code ? [row.code] : [];
+  const seen = new Set();
+  const out = [];
+  values.forEach((value) => {
+    const code = normalizeMsgCode(value);
+    if (!code || seen.has(code)) return;
+    seen.add(code);
+    out.push(code);
+  });
+  return out;
+}
+
+function messageLabelControlsHtml(convId, m) {
+  const role = (m.role || "").toLowerCase();
+  const codes = messageCodesForRole(role);
+  if (!codes.length) return "";
+
+  const key = messageLabelKey(convId, m.message_number);
+  const selected = new Set(selectedMessageCodes(messageLabels[key]));
+  const editable = canEditBotLabels();
+
+  const chips = codes
+    .map((c) => {
+      const on = selected.has(c);
+      return `<button
+        type="button"
+        class="msg-label-chip ${on ? "active" : ""}"
+        data-conv="${escapeHtml(String(convId))}"
+        data-msg="${escapeHtml(String(m.message_number))}"
+        data-role="${escapeHtml(role)}"
+        data-code="${escapeHtml(c)}"
+        aria-pressed="${on ? "true" : "false"}"
+        ${editable ? "" : "disabled"}
+      >${escapeHtml(c)}</button>`;
+    })
+    .join("");
+
+  return `<div class="msg-labels" data-conv="${escapeHtml(String(convId))}" data-msg="${escapeHtml(
+    String(m.message_number)
+  )}" data-role="${escapeHtml(role)}">${chips}</div>`;
+}
+
+async function saveMessageLabels(convId, messageNumber, role, codes) {
+  if (!canEditBotLabels()) {
+    alert("Only ruiwei or jiayi can edit message labels. Confirm your name at the top right.");
+    if (selectedId) loadDetail(selectedId);
+    return null;
+  }
+  const res = await fetch(
+    `/api/message-labels/${encodeURIComponent(convId)}/${encodeURIComponent(messageNumber)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codes, editor: labelerName(), role }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.detail || "Failed to save message label");
+    if (selectedId) loadDetail(selectedId);
+    return null;
+  }
+  const row = await res.json();
+  const key = messageLabelKey(convId, messageNumber);
+  if (row.codes && row.codes.length) messageLabels[key] = row;
+  else delete messageLabels[key];
+  try {
+    const all = JSON.parse(localStorage.getItem(MSG_LABELS_LOCAL_KEY) || "{}");
+    if (row.codes && row.codes.length) all[key] = row;
+    else delete all[key];
+    localStorage.setItem(MSG_LABELS_LOCAL_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+  return row;
+}
+
+function wireMessageLabelControls() {
+  detailPane.querySelectorAll(".msg-label-chip").forEach((el) => {
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (el.disabled) return;
+      const group = el.closest(".msg-labels");
+      if (!group) return;
+
+      const next = [];
+      group.querySelectorAll(".msg-label-chip").forEach((chip) => {
+        const code = chip.dataset.code;
+        const willBeOn = chip === el ? !chip.classList.contains("active") : chip.classList.contains("active");
+        if (willBeOn) next.push(code);
+      });
+
+      // optimistic UI
+      group.querySelectorAll(".msg-label-chip").forEach((chip) => {
+        const on = next.includes(chip.dataset.code);
+        chip.classList.toggle("active", on);
+        chip.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+
+      const saved = await saveMessageLabels(group.dataset.conv, group.dataset.msg, group.dataset.role, next);
+      if (!saved) return;
+      const finalCodes = selectedMessageCodes(saved);
+      group.querySelectorAll(".msg-label-chip").forEach((chip) => {
+        const on = finalCodes.includes(chip.dataset.code);
+        chip.classList.toggle("active", on);
+        chip.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    });
+  });
+}
+
 function renderConversationDetail(c) {
+  const convId = c.conv_id || c.id;
+  messageLabels = { ...(c.message_labels || {}) };
+  try {
+    const local = JSON.parse(localStorage.getItem(MSG_LABELS_LOCAL_KEY) || "{}");
+    Object.entries(local).forEach(([key, row]) => {
+      if (!key.startsWith(`${convId}:`)) return;
+      const server = messageLabels[key];
+      if (!server || (row.updated_at || "") > (server.updated_at || "")) {
+        messageLabels[key] = row;
+      }
+    });
+  } catch {
+    /* ignore */
+  }
+
   const messagesHtml = (c.messages || [])
     .map(
       (m) => `
@@ -841,9 +995,12 @@ function renderConversationDetail(c) {
       )}">
         <div class="bubble-meta">
           <span class="bubble-role">${escapeHtml(m.role || "unknown")} · #${m.message_number}</span>
-          <span>${escapeHtml(m.datetime || "")}${m.time_since ? ` · ${escapeHtml(m.time_since)}` : ""}</span>
+          <span class="bubble-time">${escapeHtml(m.datetime || "")}${
+            m.time_since ? ` · ${escapeHtml(m.time_since)}` : ""
+          }</span>
         </div>
         <div class="bubble-body">${escapeHtml(m.content || "")}</div>
+        ${messageLabelControlsHtml(convId, m)}
       </div>`
     )
     .join("");
@@ -896,6 +1053,7 @@ function renderConversationDetail(c) {
 
   wirePromptActions(c.system_prompt || "");
   wireMessageRoleFilter();
+  wireMessageLabelControls();
 }
 
 function wireMessageRoleFilter() {

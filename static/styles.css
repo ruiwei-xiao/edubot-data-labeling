@@ -1582,10 +1582,54 @@ body {
 .bubble-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 10px;
   margin-bottom: 6px;
   font-size: 0.75rem;
   color: var(--muted);
+}
+
+.msg-labels {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.msg-label-chip {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #64748b;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.msg-label-chip:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.msg-label-chip.active {
+  background: #14532d;
+  border-color: #14532d;
+  color: #f0fdf4;
+}
+
+.msg-label-chip:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.msg-label-chip:disabled:not(.active) {
+  background: #f8fafc;
 }
 
 .bubble-role {
