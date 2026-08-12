@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
+from app.bot_labels import list_labels, load_labels, set_bot_label
 from app.conversations_loader import (
     conversation_list_item,
     filter_conversations,
@@ -19,6 +20,7 @@ from app.data_loader import (
     find_activity_by_title,
     load_activities,
 )
+from pydantic import BaseModel, Field
 
 app = FastAPI(title="Playlab Activities Browser")
 
@@ -31,11 +33,17 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+class BotLabelUpdate(BaseModel):
+    code: str = Field(default="")
+    editor: str = Field(default="")
+
+
 @app.on_event("startup")
 def warmup():
     # Prefer cache built at deploy time; otherwise fetch/local fallback.
     load_activities()
     load_conversations()
+    load_labels()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -74,6 +82,21 @@ async def filters(
             needs_attention=needs_attention,
         ),
     }
+
+
+@app.get("/api/bot-labels")
+async def get_bot_labels():
+    return list_labels()
+
+
+@app.put("/api/bot-labels/{bot_title:path}")
+async def put_bot_label(bot_title: str, body: BotLabelUpdate):
+    try:
+        return set_bot_label(bot_title, body.code, body.editor)
+    except PermissionError as err:
+        raise HTTPException(status_code=403, detail=str(err)) from err
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
 
 
 @app.get("/api/conversations")
@@ -115,9 +138,11 @@ async def refresh_data():
 
     reload_activities()
     reload_conversations()
+    load_labels(force=True)
     activities = load_activities(force_refresh=True)
     conversations = load_conversations(force_refresh=True)
     return {
         "activities": len(activities),
         "conversations": len(conversations),
+        "bot_labels": len(list_labels()["labels"]),
     }

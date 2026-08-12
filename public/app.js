@@ -7,6 +7,22 @@ const audienceFilter = { builder: true, anonymous: true, other: true };
 let botSort = { key: "total", dir: "desc" };
 let lastStackMax = { builder: 1, anonymous: 1, other: 0 };
 let searchTimer = null;
+let botLabelCodes = [
+  "Iterative refinement",
+  "Limited evaluation",
+  "Opportunistic exploration",
+  "No testing",
+];
+let botLabels = {}; // bot_title -> { code, updated_by, updated_at }
+const ALLOWED_LABELERS = new Set(["ruiwei", "jiayi"]);
+const LABELER_KEY = "playlab_labeler_name";
+const LABELS_LOCAL_KEY = "playlab_bot_labels_cache";
+const CODE_SHORT = {
+  "Iterative refinement": "IR",
+  "Limited evaluation": "LE",
+  "Opportunistic exploration": "OE",
+  "No testing": "NT",
+};
 
 const appSelect = document.getElementById("appSelect");
 const userSelect = document.getElementById("userSelect");
@@ -28,6 +44,10 @@ const colZoomIn = document.getElementById("colZoomIn");
 const colZoomRange = document.getElementById("colZoomRange");
 const colZoomFit = document.getElementById("colZoomFit");
 const colZoomLabel = document.getElementById("colZoomLabel");
+const labelerNameInput = document.getElementById("labelerNameInput");
+const labelerConfirmBtn = document.getElementById("labelerConfirmBtn");
+const labelerStatus = document.getElementById("labelerStatus");
+let labelerConfirmed = false;
 
 const DETAIL_WIDTH_KEY = "playlab_detail_width";
 const COL_WIDTH_KEY = "playlab_bot_col_width";
@@ -259,6 +279,168 @@ function botSectionHtml(label, className, sectionItems, { allowEmpty = false } =
     </div>`;
 }
 
+function labelerName() {
+  return (labelerNameInput?.value || "").trim();
+}
+
+function canEditBotLabels() {
+  return labelerConfirmed && ALLOWED_LABELERS.has(labelerName().toLowerCase());
+}
+
+function syncLabelerStatus() {
+  if (!labelerStatus) return;
+  const name = labelerName();
+  labelerStatus.classList.remove("can-edit", "blocked");
+  botMapView?.classList.toggle("can-label", canEditBotLabels());
+  if (!name) {
+    labelerStatus.textContent = "Enter name + Confirm";
+    return;
+  }
+  if (!labelerConfirmed) {
+    labelerStatus.textContent = "Press Confirm";
+    return;
+  }
+  if (ALLOWED_LABELERS.has(name.toLowerCase())) {
+    labelerStatus.textContent = `Editing as ${name.toLowerCase()}`;
+    labelerStatus.classList.add("can-edit");
+  } else {
+    labelerStatus.textContent = "View only (ruiwei/jiayi)";
+    labelerStatus.classList.add("blocked");
+  }
+}
+
+function confirmLabeler() {
+  const name = labelerName();
+  localStorage.setItem(LABELER_KEY, name);
+  labelerConfirmed = !!name;
+  localStorage.setItem(`${LABELER_KEY}_confirmed`, labelerConfirmed ? "1" : "0");
+  syncLabelerStatus();
+  if (groupByBot) renderBotMap();
+}
+
+function wireLabelerBox() {
+  if (!labelerNameInput || labelerNameInput.dataset.wired) return;
+  labelerNameInput.dataset.wired = "1";
+  labelerNameInput.value = localStorage.getItem(LABELER_KEY) || "";
+  labelerConfirmed = localStorage.getItem(`${LABELER_KEY}_confirmed`) === "1" && !!labelerName();
+  syncLabelerStatus();
+
+  labelerNameInput.addEventListener("input", () => {
+    // Changing the name requires Confirm again
+    labelerConfirmed = false;
+    localStorage.setItem(LABELER_KEY, labelerNameInput.value);
+    localStorage.setItem(`${LABELER_KEY}_confirmed`, "0");
+    syncLabelerStatus();
+    if (groupByBot) renderBotMap();
+  });
+
+  labelerNameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      confirmLabeler();
+    }
+  });
+
+  labelerConfirmBtn?.addEventListener("click", () => confirmLabeler());
+}
+
+function codeSlug(code) {
+  return (code || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function botLabelCode(botTitle) {
+  return (botLabels[botTitle] && botLabels[botTitle].code) || "";
+}
+
+function botLevelLabelHtml(botTitle) {
+  const code = botLabelCode(botTitle);
+  const editable = canEditBotLabels();
+  const short = CODE_SHORT[code] || "—";
+  const options = [`<option value="">Select code…</option>`]
+    .concat(
+      botLabelCodes.map((c) => {
+        const selected = c === code;
+        const label = selected ? `✓ ${c}` : c;
+        return `<option value="${escapeHtml(c)}" ${selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
+      })
+    )
+    .join("");
+
+  return `
+    <div class="bot-level-label" data-bot="${escapeHtml(botTitle)}">
+      <select
+        class="bot-level-label-select ${code ? "has-code" : ""}"
+        data-bot="${escapeHtml(botTitle)}"
+        ${editable ? "" : "disabled"}
+        title="${escapeHtml(code ? `Labeled: ${code}` : "Bot-level labeling")}"
+      >${options}</select>
+      <span
+        class="bot-level-label-badge ${code ? "" : "empty"}"
+        title="${escapeHtml(code ? `Labeled: ${code}` : "Unlabeled")}"
+      >${escapeHtml(code ? `✓ ${short}` : "—")}</span>
+    </div>`;
+}
+
+async function loadBotLabels() {
+  const res = await fetch("/api/bot-labels");
+  if (!res.ok) throw new Error("Failed to load bot labels");
+  const data = await res.json();
+  if (Array.isArray(data.codes) && data.codes.length) botLabelCodes = data.codes;
+  botLabels = data.labels || {};
+
+  try {
+    const local = JSON.parse(localStorage.getItem(LABELS_LOCAL_KEY) || "{}");
+    Object.entries(local).forEach(([bot, row]) => {
+      if (!row || typeof row !== "object") return;
+      const server = botLabels[bot];
+      if (!server || (row.updated_at || "") > (server.updated_at || "")) {
+        botLabels[bot] = row;
+      }
+    });
+  } catch {
+    /* ignore bad local cache */
+  }
+  localStorage.setItem(LABELS_LOCAL_KEY, JSON.stringify(botLabels));
+}
+
+async function saveBotLabel(botTitle, code) {
+  if (!canEditBotLabels()) {
+    alert("Only ruiwei or jiayi can edit bot-level codes. Enter your name at the top right.");
+    syncLabelerStatus();
+    if (groupByBot) renderBotMap();
+    return;
+  }
+  const res = await fetch(`/api/bot-labels/${encodeURIComponent(botTitle)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, editor: labelerName() }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.detail || "Failed to save label");
+    await loadBotLabels();
+    if (groupByBot) renderBotMap();
+    return;
+  }
+  const row = await res.json();
+  if (row.code) botLabels[botTitle] = row;
+  else delete botLabels[botTitle];
+  localStorage.setItem(LABELS_LOCAL_KEY, JSON.stringify(botLabels));
+  if (groupByBot) renderBotMap();
+}
+
+function wireBotLabelControls() {
+  botMapGrid.querySelectorAll(".bot-level-label-select").forEach((el) => {
+    el.addEventListener("change", () => {
+      saveBotLabel(el.dataset.bot, el.value);
+    });
+    el.addEventListener("click", (e) => e.stopPropagation());
+  });
+}
+
 function conversationAudience(c) {
   if (c.is_builder) return "builder";
   if (c.user === "Anonymous") return "anonymous";
@@ -360,6 +542,7 @@ function renderBotMap() {
         <div class="bot-column" title="${escapeHtml(`${key} · ${groupItems.length} conversations`)}">
           <div class="bot-column-header">
             <div class="bot-column-title">${escapeHtml(key)}</div>
+            ${botLevelLabelHtml(key)}
             <div class="bot-column-stats">
               <span>${groupItems.length} total</span>
               ${audienceFilter.builder ? `<span>${builders.length} builder</span>` : ""}
@@ -384,6 +567,7 @@ function renderBotMap() {
       loadDetail(selectedId);
     });
   });
+  wireBotLabelControls();
 }
 
 function stackUnitPx(density) {
@@ -760,8 +944,10 @@ if (botMapLegend) {
     wireCountSelect("userSelectWrap");
     wireSplitHandle();
     wireColumnZoom();
+    wireLabelerBox();
     applyDetailWidth();
     groupByBotBtn.classList.toggle("active", groupByBot);
+    await loadBotLabels();
     await loadFilters();
     await loadList();
   } catch (err) {
