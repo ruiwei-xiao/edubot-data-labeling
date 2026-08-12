@@ -10,31 +10,60 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from app.conversations_loader import (  # noqa: E402
+    CACHE_PATH as CONV_CACHE_PATH,
     build_conversations_from_csv_text,
     fetch_sheet_csv,
+    load_conversations_cache,
     save_conversations_cache,
     sheet_csv_url as conversations_sheet_url,
 )
 from app.data_loader import (  # noqa: E402
+    CACHE_PATH as ACT_CACHE_PATH,
     build_activities_from_csv_text,
     fetch_sheet_csv as fetch_activities_csv,
+    load_activities_cache,
     save_activities_cache,
     sheet_csv_url as activities_sheet_url,
 )
 
 
-def main() -> None:
-    print("Fetching conversations from:", conversations_sheet_url())
-    conv_text = fetch_sheet_csv(conversations_sheet_url())
-    conversations = build_conversations_from_csv_text(conv_text)
-    save_conversations_cache(conversations)
-    print(f"Wrote {len(conversations)} conversations -> data/cache/conversations.json")
+def _fetch_with_fallback(label: str, url: str, fetch_fn, build_fn, save_fn, cache_path: Path, load_fn) -> int:
+    try:
+        print(f"Fetching {label} from:", url)
+        text = fetch_fn(url)
+        rows = build_fn(text)
+        if not rows:
+            raise RuntimeError(f"{label} fetch returned 0 rows")
+        save_fn(rows)
+        print(f"Wrote {len(rows)} {label} -> {cache_path}")
+        return len(rows)
+    except Exception as err:
+        existing = load_fn()
+        if existing:
+            print(f"WARN: {label} fetch failed ({err}); keeping existing cache ({len(existing)} rows)")
+            return len(existing)
+        raise RuntimeError(f"{label} fetch failed and no cache available: {err}") from err
 
-    print("Fetching activities from:", activities_sheet_url())
-    act_text = fetch_activities_csv(activities_sheet_url())
-    activities = build_activities_from_csv_text(act_text)
-    save_activities_cache(activities)
-    print(f"Wrote {len(activities)} activities -> data/cache/activities.json")
+
+def main() -> None:
+    _fetch_with_fallback(
+        "conversations",
+        conversations_sheet_url(),
+        fetch_sheet_csv,
+        build_conversations_from_csv_text,
+        save_conversations_cache,
+        CONV_CACHE_PATH,
+        load_conversations_cache,
+    )
+    _fetch_with_fallback(
+        "activities",
+        activities_sheet_url(),
+        fetch_activities_csv,
+        build_activities_from_csv_text,
+        save_activities_cache,
+        ACT_CACHE_PATH,
+        load_activities_cache,
+    )
 
 
 if __name__ == "__main__":

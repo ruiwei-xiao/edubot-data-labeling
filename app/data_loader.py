@@ -8,7 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+
+from app.sheet_fetch import fetch_url_text
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 CACHE_PATH = DATA_DIR / "cache" / "activities.json"
@@ -107,10 +108,7 @@ def _row_to_activity(row: dict[str, str]) -> dict[str, Any]:
 
 
 def fetch_sheet_csv(url: Optional[str] = None) -> str:
-    target = url or sheet_csv_url()
-    req = Request(target, headers={"User-Agent": "edubot-data-labeling/1.0"})
-    with urlopen(req, timeout=120) as resp:
-        return resp.read().decode("utf-8")
+    return fetch_url_text(url or sheet_csv_url(), timeout=300, retries=6)
 
 
 def build_activities_from_csv_text(text: str) -> list[dict[str, Any]]:
