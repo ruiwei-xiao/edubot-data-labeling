@@ -92,12 +92,13 @@
               <span class="legend-sort" data-sort="other" title="Sort by Other users count">↕</span>
             </button>
           </div>
-          <div class="bot-map-zoom" title="Ctrl/⌘ + scroll to zoom column width">
+          <div class="bot-map-zoom" title="⌘/Ctrl + trackpad pinch (or scroll) to zoom column width">
             <button type="button" class="zoom-btn" id="colZoomOut" aria-label="Narrower columns">−</button>
             <input type="range" id="colZoomRange" min="12" max="320" step="2" value="280" aria-label="Column width" />
             <button type="button" class="zoom-btn" id="colZoomIn" aria-label="Wider columns">+</button>
             <button type="button" class="zoom-fit" id="colZoomFit" title="Fit all columns on screen">Fit</button>
             <span class="zoom-label" id="colZoomLabel">280px</span>
+            <span class="zoom-hint">⌘ + trackpad pinch</span>
           </div>
         </div>
         <div class="bot-map-grid" id="botMapGrid"></div>
