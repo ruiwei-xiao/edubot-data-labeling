@@ -443,14 +443,22 @@ function wireBotLabelControls() {
 
 function conversationAudience(c) {
   if (c.is_builder) return "builder";
-  if (c.user === "Anonymous") return "anonymous";
+  if (c.is_anonymous || c.user === "Anonymous" || c.user_raw === "Anonymous") return "anonymous";
   return "other";
 }
 
 function audienceCount(groupItems, key) {
   if (key === "builder") return groupItems.filter((c) => c.is_builder).length;
-  if (key === "anonymous") return groupItems.filter((c) => !c.is_builder && c.user === "Anonymous").length;
-  if (key === "other") return groupItems.filter((c) => !c.is_builder && c.user !== "Anonymous").length;
+  if (key === "anonymous") {
+    return groupItems.filter(
+      (c) => !c.is_builder && (c.is_anonymous || c.user === "Anonymous" || c.user_raw === "Anonymous")
+    ).length;
+  }
+  if (key === "other") {
+    return groupItems.filter(
+      (c) => !c.is_builder && !(c.is_anonymous || c.user === "Anonymous" || c.user_raw === "Anonymous")
+    ).length;
+  }
   return groupItems.length;
 }
 
@@ -518,8 +526,12 @@ function renderBotMap() {
     .map((key) => {
       const groupItems = groups.get(key);
       const builders = groupItems.filter((c) => c.is_builder);
-      const anonymous = groupItems.filter((c) => !c.is_builder && c.user === "Anonymous");
-      const others = groupItems.filter((c) => !c.is_builder && c.user !== "Anonymous");
+      const anonymous = groupItems.filter(
+        (c) => !c.is_builder && (c.is_anonymous || c.user === "Anonymous" || c.user_raw === "Anonymous")
+      );
+      const others = groupItems.filter(
+        (c) => !c.is_builder && !(c.is_anonymous || c.user === "Anonymous" || c.user_raw === "Anonymous")
+      );
       maxBuilder = Math.max(maxBuilder, builders.length);
       maxAnonymous = Math.max(maxAnonymous, anonymous.length);
       maxOther = Math.max(maxOther, others.length);

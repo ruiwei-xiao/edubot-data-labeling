@@ -86,6 +86,21 @@ def _message_from_row(row: dict[str, str]) -> dict[str, Any]:
     }
 
 
+def _resolve_display_user(head: dict[str, str], rows: list[dict[str, str]]) -> tuple[str, str]:
+    """Return (display_name, raw_user). Display prefers deanon_user over user."""
+    raw = (head.get("user") or "").strip() or "Anonymous"
+    deanon = ""
+    for row in rows:
+        value = (row.get("deanon_user") or "").strip()
+        if not value:
+            continue
+        if value != "Anonymous":
+            return value, raw
+        if not deanon:
+            deanon = value
+    return (deanon or raw), raw
+
+
 def _rows_to_conversations(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     buckets: dict[str, list[dict[str, str]]] = {}
     for row in rows:
@@ -103,7 +118,7 @@ def _rows_to_conversations(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
             else 0,
         )
         head = rows_sorted[0]
-        user = (head.get("deanon_user") or head.get("user") or "Anonymous").strip() or "Anonymous"
+        user, user_raw = _resolve_display_user(head, rows_sorted)
         date_raw = (head.get("date") or "").strip()
         parsed = _parse_date(date_raw)
         try:
@@ -123,6 +138,9 @@ def _rows_to_conversations(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
             "date": date_raw,
             "date_sort": parsed.isoformat() if parsed else date_raw,
             "user": user,
+            "user_raw": user_raw,
+            "deanon_user": user,
+            "is_anonymous": user_raw == "Anonymous" or user == "Anonymous",
             "is_builder": _truthy(head.get("is_builder", "")),
             "turns": turns,
             "message_count": len(messages),
@@ -304,6 +322,8 @@ def conversation_list_item(conv: dict[str, Any]) -> dict[str, Any]:
         "id": conv["id"],
         "title": conv["title"],
         "user": conv["user"],
+        "user_raw": conv.get("user_raw") or conv["user"],
+        "is_anonymous": bool(conv.get("is_anonymous")),
         "date": conv["date"],
         "turns": conv["turns"],
         "message_count": conv["message_count"],
