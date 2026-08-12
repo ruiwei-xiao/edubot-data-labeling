@@ -21,9 +21,18 @@ const splitHandle = document.getElementById("splitHandle");
 const needsAttentionBtn = document.getElementById("needsAttentionBtn");
 const groupByBotBtn = document.getElementById("groupByBotBtn");
 const botMapLegend = document.querySelector(".bot-map-legend");
+const colZoomOut = document.getElementById("colZoomOut");
+const colZoomIn = document.getElementById("colZoomIn");
+const colZoomRange = document.getElementById("colZoomRange");
+const colZoomFit = document.getElementById("colZoomFit");
+const colZoomLabel = document.getElementById("colZoomLabel");
 
 const DETAIL_WIDTH_KEY = "playlab_detail_width";
+const COL_WIDTH_KEY = "playlab_bot_col_width";
 let detailWidth = Number(localStorage.getItem(DETAIL_WIDTH_KEY)) || 420;
+let botColWidth = Number(localStorage.getItem(COL_WIDTH_KEY)) || 280;
+const COL_W_MIN = 36;
+const COL_W_MAX = 320;
 
 function initials(name) {
   return (
@@ -219,8 +228,9 @@ function conversationItemHtml(c) {
 }
 
 function botCardHtml(c) {
+  const tip = `${c.user} · ${c.date} · ${c.message_count} msgs`;
   return `
-    <button class="bot-card ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button">
+    <button class="bot-card ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button" title="${escapeHtml(tip)}">
       <div class="bot-card-top">
         <div class="bot-card-user">${escapeHtml(c.user)}</div>
         <div class="bot-card-date">${escapeHtml(c.date)}</div>
@@ -289,7 +299,7 @@ function renderBotMap() {
       const others = groupItems.filter((c) => !c.is_builder && c.user !== "Anonymous");
 
       return `
-        <div class="bot-column">
+        <div class="bot-column" title="${escapeHtml(`${key} · ${groupItems.length} conversations`)}">
           <div class="bot-column-header">
             <div class="bot-column-title">${escapeHtml(key)}</div>
             <div class="bot-column-stats">
@@ -317,6 +327,70 @@ function renderBotMap() {
   });
 }
 
+function densityForWidth(w) {
+  if (w < 64) return "overview";
+  if (w < 120) return "narrow";
+  if (w < 200) return "compact";
+  return "comfortable";
+}
+
+function applyBotColWidth(persist = true) {
+  botColWidth = Math.min(COL_W_MAX, Math.max(COL_W_MIN, Math.round(botColWidth)));
+  const gap = botColWidth < 64 ? 3 : botColWidth < 120 ? 6 : 12;
+  botMapView.style.setProperty("--bot-col-w", `${botColWidth}px`);
+  botMapView.style.setProperty("--bot-col-gap", `${gap}px`);
+  botMapView.dataset.density = densityForWidth(botColWidth);
+  if (colZoomRange) colZoomRange.value = String(botColWidth);
+  if (colZoomLabel) colZoomLabel.textContent = `${botColWidth}px`;
+  if (persist) localStorage.setItem(COL_WIDTH_KEY, String(botColWidth));
+}
+
+function fitAllColumns() {
+  const cols = botMapGrid.querySelectorAll(".bot-column").length;
+  if (!cols) return;
+  const pad = 28;
+  const available = Math.max(200, botMapGrid.clientWidth - pad);
+  // Leave a tiny gap; solve w * n + gap*(n-1) ~= available
+  const gap = 3;
+  const width = Math.floor((available - gap * (cols - 1)) / cols);
+  botColWidth = Math.min(COL_W_MAX, Math.max(COL_W_MIN, width));
+  applyBotColWidth();
+}
+
+function wireColumnZoom() {
+  if (!botMapView || botMapView.dataset.zoomWired) return;
+  botMapView.dataset.zoomWired = "1";
+
+  applyBotColWidth(false);
+
+  colZoomOut?.addEventListener("click", () => {
+    botColWidth -= botColWidth <= 80 ? 4 : 16;
+    applyBotColWidth();
+  });
+  colZoomIn?.addEventListener("click", () => {
+    botColWidth += botColWidth < 80 ? 4 : 16;
+    applyBotColWidth();
+  });
+  colZoomRange?.addEventListener("input", () => {
+    botColWidth = Number(colZoomRange.value);
+    applyBotColWidth();
+  });
+  colZoomFit?.addEventListener("click", () => fitAllColumns());
+
+  // Ctrl/⌘ + scroll, or trackpad pinch (browsers report as ctrl+wheel)
+  botMapGrid.addEventListener(
+    "wheel",
+    (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const step = botColWidth <= 80 ? 4 : 12;
+      botColWidth += e.deltaY < 0 ? step : -step;
+      applyBotColWidth();
+    },
+    { passive: false }
+  );
+}
+
 function applyDetailWidth() {
   const minDetail = 280;
   const maxDetail = Math.max(minDetail, window.innerWidth - 320);
@@ -329,7 +403,10 @@ function updateLayoutMode() {
   workspace.classList.toggle("bot-map-mode", mapOn);
   botMapView.hidden = !mapOn;
   splitHandle.hidden = !mapOn;
-  if (mapOn) applyDetailWidth();
+  if (mapOn) {
+    applyDetailWidth();
+    applyBotColWidth(false);
+  }
 }
 
 function wireSplitHandle() {
@@ -576,6 +653,7 @@ if (botMapLegend) {
     wireCountSelect("appSelectWrap");
     wireCountSelect("userSelectWrap");
     wireSplitHandle();
+    wireColumnZoom();
     applyDetailWidth();
     await loadFilters();
     await loadList();

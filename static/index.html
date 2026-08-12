@@ -83,6 +83,13 @@
             <button type="button" class="legend-item legend-anonymous active" data-audience="anonymous" title="Show/hide Anonymous">Anonymous</button>
             <button type="button" class="legend-item legend-other active" data-audience="other" title="Show/hide Other users">Other users</button>
           </div>
+          <div class="bot-map-zoom" title="Ctrl/⌘ + scroll to zoom column width">
+            <button type="button" class="zoom-btn" id="colZoomOut" aria-label="Narrower columns">−</button>
+            <input type="range" id="colZoomRange" min="36" max="320" step="4" value="280" aria-label="Column width" />
+            <button type="button" class="zoom-btn" id="colZoomIn" aria-label="Wider columns">+</button>
+            <button type="button" class="zoom-fit" id="colZoomFit" title="Fit all columns on screen">Fit</button>
+            <span class="zoom-label" id="colZoomLabel">280px</span>
+          </div>
         </div>
         <div class="bot-map-grid" id="botMapGrid"></div>
       </section>
