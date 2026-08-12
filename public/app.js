@@ -836,7 +836,9 @@ function renderConversationDetail(c) {
   const messagesHtml = (c.messages || [])
     .map(
       (m) => `
-      <div class="bubble ${escapeHtml(m.role)} ${m.flagged ? "flagged" : ""}">
+      <div class="bubble ${escapeHtml(m.role)} ${m.flagged ? "flagged" : ""}" data-role="${escapeHtml(
+        (m.role || "").toLowerCase()
+      )}">
         <div class="bubble-meta">
           <span class="bubble-role">${escapeHtml(m.role || "unknown")} · #${m.message_number}</span>
           <span>${escapeHtml(m.datetime || "")}${m.time_since ? ` · ${escapeHtml(m.time_since)}` : ""}</span>
@@ -867,20 +869,67 @@ function renderConversationDetail(c) {
       <div class="meta-card"><div class="label">Builder</div><div class="value">${c.is_builder ? "Yes" : "No"}</div></div>
     </div>
 
-    <div class="section system-prompt-section">
-      <h3>System prompt</h3>
-      ${appConfigHtml(c.app_config)}
-      <pre class="prompt-body prompt-collapsed" id="promptBody">${escapeHtml(c.system_prompt || "(empty)")}</pre>
-      <button type="button" class="linkish" id="expandPromptBtn">Show full prompt</button>
+    <div class="section system-prompt-section" id="systemPromptSection">
+      <div class="section-head">
+        <h3>System prompt</h3>
+        <button type="button" class="section-toggle" id="togglePromptSectionBtn">Collapse</button>
+      </div>
+      <div class="system-prompt-body" id="systemPromptBody">
+        ${appConfigHtml(c.app_config)}
+        <pre class="prompt-body prompt-collapsed" id="promptBody">${escapeHtml(c.system_prompt || "(empty)")}</pre>
+        <button type="button" class="linkish" id="expandPromptBtn">Show full prompt</button>
+      </div>
     </div>
 
     <div class="section">
-      <h3>Messages</h3>
-      <div class="thread">${messagesHtml || "<p>No messages</p>"}</div>
+      <div class="section-head">
+        <h3>Messages</h3>
+        <div class="msg-role-filter" role="group" aria-label="Message role filter">
+          <button type="button" class="chip-btn active" data-msg-filter="all">All</button>
+          <button type="button" class="chip-btn" data-msg-filter="user">User</button>
+          <button type="button" class="chip-btn" data-msg-filter="bot">Bot</button>
+        </div>
+      </div>
+      <div class="thread" id="messageThread">${messagesHtml || "<p>No messages</p>"}</div>
     </div>
   `;
 
   wirePromptActions(c.system_prompt || "");
+  wireMessageRoleFilter();
+}
+
+function wireMessageRoleFilter() {
+  const buttons = detailPane.querySelectorAll("[data-msg-filter]");
+  const thread = document.getElementById("messageThread");
+  if (!buttons.length || !thread) return;
+
+  const apply = (filter) => {
+    buttons.forEach((btn) => btn.classList.toggle("active", btn.dataset.msgFilter === filter));
+    thread.querySelectorAll(".bubble").forEach((bubble) => {
+      const role = (bubble.dataset.role || "").toLowerCase();
+      const show =
+        filter === "all" ||
+        (filter === "user" && role === "user") ||
+        (filter === "bot" && (role === "bot" || role === "assistant"));
+      bubble.hidden = !show;
+    });
+    const visible = [...thread.querySelectorAll(".bubble")].some((b) => !b.hidden);
+    let empty = thread.querySelector(".msg-filter-empty");
+    if (!visible && thread.querySelector(".bubble")) {
+      if (!empty) {
+        empty = document.createElement("p");
+        empty.className = "msg-filter-empty";
+        empty.textContent = "No messages for this filter";
+        thread.appendChild(empty);
+      }
+    } else if (empty) {
+      empty.remove();
+    }
+  };
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => apply(btn.dataset.msgFilter));
+  });
 }
 
 function wirePromptActions(promptText) {
@@ -894,6 +943,17 @@ function wirePromptActions(promptText) {
       } catch {
         copyBtn.textContent = "Copy failed";
       }
+    });
+  }
+
+  const section = document.getElementById("systemPromptSection");
+  const sectionBody = document.getElementById("systemPromptBody");
+  const sectionToggle = document.getElementById("togglePromptSectionBtn");
+  if (section && sectionBody && sectionToggle) {
+    sectionToggle.addEventListener("click", () => {
+      const collapsed = section.classList.toggle("section-collapsed");
+      sectionBody.hidden = collapsed;
+      sectionToggle.textContent = collapsed ? "Expand" : "Collapse";
     });
   }
 

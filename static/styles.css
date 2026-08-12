@@ -1390,7 +1390,57 @@ body {
 
 .section h3 {
   font-size: 0.95rem;
+  margin-bottom: 0;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.section-toggle {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: white;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.section-toggle:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.system-prompt-section.section-collapsed {
+  padding-bottom: 12px;
+}
+
+.msg-role-filter {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.msg-role-filter .chip-btn {
+  height: 30px;
+  font-size: 0.8rem;
+}
+
+.msg-filter-empty {
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin: 0;
 }
 
 .section p,
