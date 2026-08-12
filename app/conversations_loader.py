@@ -325,6 +325,7 @@ def conversation_list_item(conv: dict[str, Any]) -> dict[str, Any]:
         "user_raw": conv.get("user_raw") or conv["user"],
         "is_anonymous": bool(conv.get("is_anonymous")),
         "date": conv["date"],
+        "date_sort": conv.get("date_sort") or conv["date"],
         "turns": conv["turns"],
         "message_count": conv["message_count"],
         "is_builder": conv["is_builder"],

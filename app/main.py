@@ -40,8 +40,10 @@ class BotLabelUpdate(BaseModel):
 
 
 class MessageLabelUpdate(BaseModel):
-    codes: list[str] = Field(default_factory=list)
-    code: str = Field(default="")  # legacy single-value
+    code: str = Field(default="")
+    codes: list[str] = Field(default_factory=list)  # legacy
+    rationale: str = Field(default="")
+    iterative: bool = Field(default=False)
     editor: str = Field(default="")
     role: str = Field(default="")
 
@@ -119,10 +121,12 @@ async def put_message_label(conv_id: str, message_number: str, body: MessageLabe
         return set_message_label(
             conv_id,
             message_number,
-            body.codes,
             body.editor,
-            body.role,
+            role=body.role,
             code=body.code,
+            codes=body.codes,
+            rationale=body.rationale,
+            iterative=body.iterative,
         )
     except PermissionError as err:
         raise HTTPException(status_code=403, detail=str(err)) from err

@@ -1,6 +1,17 @@
 {
-  "bot_codes": ["success", "fail", "others"],
-  "user_codes": ["desired", "adversarial", "others"],
+  "bot_codes": [
+    "success",
+    "fail",
+    "others"
+  ],
+  "user_codes": [
+    "desired",
+    "adversarial",
+    "others"
+  ],
+  "user_extras": [
+    "iterative"
+  ],
   "labels": {},
   "updated_at": ""
 }

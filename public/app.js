@@ -3,9 +3,11 @@ let selectedId = null;
 let filterData = { conversations: {} };
 let needsAttention = false;
 let groupByBot = true;
+let groupByUser = true;
+let sortByTime = false;
 const audienceFilter = { builder: true, anonymous: true, other: true };
 let botSort = { key: "total", dir: "desc" };
-let lastStackMax = { builder: 1, anonymous: 1, other: 0 };
+let lastStackMax = { builder: 1, anonymous: 1, other: 0, total: 1 };
 let searchTimer = null;
 let botLabelCodes = [
   "Iterative refinement",
@@ -42,6 +44,8 @@ const botMapCount = document.getElementById("botMapCount");
 const splitHandle = document.getElementById("splitHandle");
 const needsAttentionBtn = document.getElementById("needsAttentionBtn");
 const groupByBotBtn = document.getElementById("groupByBotBtn");
+const groupByUserBtn = document.getElementById("groupByUserBtn");
+const sortByTimeBtn = document.getElementById("sortByTimeBtn");
 const botMapLegend = document.querySelector(".bot-map-legend");
 const colZoomOut = document.getElementById("colZoomOut");
 const colZoomIn = document.getElementById("colZoomIn");
@@ -253,10 +257,20 @@ function conversationItemHtml(c) {
     </button>`;
 }
 
+function conversationSortKey(c) {
+  return `${c.date_sort || c.date || ""}\0${c.id || ""}`;
+}
+
+function sortConversationsByTime(list, dir = "desc") {
+  const mult = dir === "asc" ? 1 : -1;
+  return [...list].sort((a, b) => mult * conversationSortKey(a).localeCompare(conversationSortKey(b)));
+}
+
 function botCardHtml(c) {
+  const audience = conversationAudience(c);
   const tip = `${c.user} · ${c.date} · ${c.message_count} msgs`;
   return `
-    <button class="bot-card ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button" title="${escapeHtml(tip)}">
+    <button class="bot-card aud-${audience} ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button" title="${escapeHtml(tip)}">
       <div class="bot-card-top">
         <div class="bot-card-user">${escapeHtml(c.user)}</div>
         <div class="bot-card-date">${escapeHtml(c.date)}</div>
@@ -337,8 +351,8 @@ function wireLabelerBox() {
     localStorage.setItem(`${LABELER_KEY}_confirmed`, "0");
     syncLabelerStatus();
     if (groupByBot) renderBotMap();
-    detailPane.querySelectorAll(".msg-label-chip").forEach((el) => {
-      el.disabled = true;
+    detailPane.querySelectorAll(".msg-label-panel").forEach((panel) => {
+      setMessageLabelPanelEditable(panel, false);
     });
   });
 
@@ -472,10 +486,11 @@ function audienceCount(groupItems, key) {
 
 function syncAudienceLegend() {
   if (!botMapLegend) return;
+  botMapLegend.hidden = !!sortByTime;
   botMapLegend.querySelectorAll("[data-audience]").forEach((btn) => {
     const key = btn.dataset.audience;
     btn.classList.toggle("active", !!audienceFilter[key]);
-    btn.classList.toggle("sorting", botSort.key === key);
+    btn.classList.toggle("sorting", !sortByTime && botSort.key === key);
     btn.setAttribute("aria-pressed", audienceFilter[key] ? "true" : "false");
     const sortEl = btn.querySelector(".legend-sort");
     if (sortEl) {
@@ -491,6 +506,7 @@ function syncAudienceLegend() {
 }
 
 function setBotSort(key) {
+  if (sortByTime) return;
   if (botSort.key === key) {
     botSort.dir = botSort.dir === "desc" ? "asc" : "desc";
   } else {
@@ -518,6 +534,7 @@ function renderBotMap() {
 
   botMapCount.textContent = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${visibleItems.length} conversations`;
   syncAudienceLegend();
+  botMapView.classList.toggle("chrono-mode", !!sortByTime);
 
   if (!sortedKeys.length) {
     botMapGrid.innerHTML = `<div class="empty">No conversations for the selected audience filters.</div>`;
@@ -525,10 +542,11 @@ function renderBotMap() {
     return;
   }
 
-  const useMidline = audienceFilter.builder && audienceFilter.anonymous;
+  const useMidline = !sortByTime && groupByUser && audienceFilter.builder && audienceFilter.anonymous;
   let maxBuilder = 0;
   let maxAnonymous = 0;
   let maxOther = 0;
+  let maxTotal = 0;
 
   botMapGrid.innerHTML = sortedKeys
     .map((key) => {
@@ -543,20 +561,26 @@ function renderBotMap() {
       maxBuilder = Math.max(maxBuilder, builders.length);
       maxAnonymous = Math.max(maxAnonymous, anonymous.length);
       maxOther = Math.max(maxOther, others.length);
+      maxTotal = Math.max(maxTotal, groupItems.length);
 
-      const builderHtml = audienceFilter.builder
-        ? botSectionHtml("Builder tests", "bot-section-builder", builders, { allowEmpty: useMidline })
-        : "";
-      const anonHtml = audienceFilter.anonymous
-        ? botSectionHtml("Anonymous", "bot-section-anonymous", anonymous, { allowEmpty: useMidline })
-        : "";
-      const otherHtml = audienceFilter.other
-        ? botSectionHtml("Other users", "bot-section-other", others)
-        : "";
-
-      const bodyHtml = useMidline
-        ? `${builderHtml}<div class="bot-half-bottom">${anonHtml}${otherHtml}</div>`
-        : `${builderHtml}${anonHtml}${otherHtml}`;
+      let bodyHtml = "";
+      if (sortByTime) {
+        const chronoItems = sortConversationsByTime(groupItems, "asc");
+        bodyHtml = `<div class="bot-section bot-section-chrono">${chronoItems.map(botCardHtml).join("")}</div>`;
+      } else {
+        const builderHtml = audienceFilter.builder
+          ? botSectionHtml("Builder tests", "bot-section-builder", builders, { allowEmpty: useMidline })
+          : "";
+        const anonHtml = audienceFilter.anonymous
+          ? botSectionHtml("Anonymous", "bot-section-anonymous", anonymous, { allowEmpty: useMidline })
+          : "";
+        const otherHtml = audienceFilter.other
+          ? botSectionHtml("Other users", "bot-section-other", others)
+          : "";
+        bodyHtml = useMidline
+          ? `${builderHtml}<div class="bot-half-bottom">${anonHtml}${otherHtml}</div>`
+          : `${builderHtml}${anonHtml}${otherHtml}`;
+      }
 
       return `
         <div class="bot-column" title="${escapeHtml(`${key} · ${groupItems.length} conversations`)}">
@@ -570,14 +594,14 @@ function renderBotMap() {
               ${audienceFilter.other ? `<span>${others.length} other</span>` : ""}
             </div>
           </div>
-          <div class="bot-column-body${useMidline ? " midline" : ""}">
+          <div class="bot-column-body${useMidline ? " midline" : ""}${sortByTime ? " chrono" : ""}">
             ${bodyHtml}
           </div>
         </div>`;
     })
     .join("");
 
-  lastStackMax = { builder: maxBuilder, anonymous: maxAnonymous, other: maxOther };
+  lastStackMax = { builder: maxBuilder, anonymous: maxAnonymous, other: maxOther, total: maxTotal };
   applyBotMapFitHeight();
 
   botMapGrid.querySelectorAll(".bot-card").forEach((el) => {
@@ -614,6 +638,16 @@ function applyBotMapFitHeight() {
     if (n === 0) return Math.ceil(unit * 1.1);
     return Math.ceil(n * unit * 1.1 + pad);
   };
+
+  if (sortByTime) {
+    const ht = heightFor(lastStackMax.total || 0, true);
+    botMapView.style.setProperty("--bot-h-builder", `0px`);
+    botMapView.style.setProperty("--bot-h-anonymous", `0px`);
+    botMapView.style.setProperty("--bot-h-other", `0px`);
+    botMapView.style.setProperty("--bot-body-h", `${ht}px`);
+    botMapView.classList.add("fit-height");
+    return;
+  }
 
   const hb = heightFor(lastStackMax.builder, audienceFilter.builder);
   const ha = heightFor(lastStackMax.anonymous, audienceFilter.anonymous);
@@ -755,7 +789,8 @@ function renderList() {
     return;
   }
 
-  itemList.innerHTML = items.map(conversationItemHtml).join("");
+  const listItems = sortByTime ? sortConversationsByTime(items, "asc") : items;
+  itemList.innerHTML = listItems.map(conversationItemHtml).join("");
 
   itemList.querySelectorAll(".activity-item").forEach((el) => {
     el.addEventListener("click", () => {
@@ -857,19 +892,65 @@ function normalizeMsgCode(code) {
     .toLowerCase();
 }
 
-function selectedMessageCodes(row) {
-  if (!row) return [];
-  const fromList = Array.isArray(row.codes) ? row.codes : [];
-  const values = fromList.length ? fromList : row.code ? [row.code] : [];
-  const seen = new Set();
-  const out = [];
-  values.forEach((value) => {
-    const code = normalizeMsgCode(value);
-    if (!code || seen.has(code)) return;
-    seen.add(code);
-    out.push(code);
-  });
-  return out;
+function messageLabelCode(row) {
+  if (!row) return "";
+  if (row.code) return normalizeMsgCode(row.code);
+  if (Array.isArray(row.codes) && row.codes.length) {
+    const primary = row.codes.map(normalizeMsgCode).find((c) => c && c !== "iterative");
+    return primary || "";
+  }
+  return "";
+}
+
+function messageLabelRationale(row) {
+  return row && row.rationale ? String(row.rationale) : "";
+}
+
+function messageLabelIterative(row) {
+  if (!row) return false;
+  if (row.iterative) return true;
+  if (Array.isArray(row.codes) && row.codes.map(normalizeMsgCode).includes("iterative")) return true;
+  return false;
+}
+
+function setMessageLabelPanelEditable(panel, editable) {
+  panel
+    .querySelectorAll(".msg-label-opt, .msg-label-extra, .msg-label-rationale, .msg-label-confirm")
+    .forEach((el) => {
+      el.disabled = !editable;
+    });
+  if (editable) syncMessageLabelConfirm(panel);
+}
+
+function syncMessageLabelConfirm(panel) {
+  const confirmBtn = panel.querySelector(".msg-label-confirm");
+  const rationaleEl = panel.querySelector(".msg-label-rationale");
+  if (!confirmBtn || !rationaleEl) return;
+
+  const key = messageLabelKey(panel.dataset.conv, panel.dataset.msg);
+  const saved = messageLabels[key];
+  const code = panel.dataset.draftCode || "";
+  const iterative = panel.dataset.draftIterative === "1";
+  const rationale = rationaleEl.value.trim();
+  const savedCode = messageLabelCode(saved);
+  const savedRationale = messageLabelRationale(saved).trim();
+  const savedIterative = messageLabelIterative(saved);
+  const dirty =
+    code !== savedCode || rationale !== savedRationale || iterative !== savedIterative;
+  const ready = !!code && !!rationale && dirty;
+  confirmBtn.disabled = !canEditBotLabels() || !ready;
+  confirmBtn.textContent = savedCode && !dirty ? "Saved" : "Confirm";
+  panel.classList.toggle("is-saved", !!savedCode && !dirty);
+  panel.classList.toggle("is-dirty", dirty && (!!code || !!rationale || iterative));
+}
+
+function messageLabelStatusHtml(code, iterative, updatedBy) {
+  if (!code) return `<div class="msg-label-status">Select a label, add rationale, then Confirm</div>`;
+  const bits = [escapeHtml(code)];
+  if (iterative) bits.push("iterative");
+  return `<div class="msg-label-status">Labeled <strong>${bits.join(" · ")}</strong>${
+    updatedBy ? ` · ${escapeHtml(updatedBy)}` : ""
+  }</div>`;
 }
 
 function messageLabelControlsHtml(convId, m) {
@@ -878,18 +959,19 @@ function messageLabelControlsHtml(convId, m) {
   if (!codes.length) return "";
 
   const key = messageLabelKey(convId, m.message_number);
-  const selected = new Set(selectedMessageCodes(messageLabels[key]));
+  const row = messageLabels[key];
+  const savedCode = messageLabelCode(row);
+  const savedRationale = messageLabelRationale(row);
+  const savedIterative = messageLabelIterative(row);
   const editable = canEditBotLabels();
+  const showIterative = role === "user";
 
-  const chips = codes
+  const opts = codes
     .map((c) => {
-      const on = selected.has(c);
+      const on = c === savedCode;
       return `<button
         type="button"
-        class="msg-label-chip ${on ? "active" : ""}"
-        data-conv="${escapeHtml(String(convId))}"
-        data-msg="${escapeHtml(String(m.message_number))}"
-        data-role="${escapeHtml(role)}"
+        class="msg-label-opt ${on ? "active" : ""}"
         data-code="${escapeHtml(c)}"
         aria-pressed="${on ? "true" : "false"}"
         ${editable ? "" : "disabled"}
@@ -897,12 +979,44 @@ function messageLabelControlsHtml(convId, m) {
     })
     .join("");
 
-  return `<div class="msg-labels" data-conv="${escapeHtml(String(convId))}" data-msg="${escapeHtml(
-    String(m.message_number)
-  )}" data-role="${escapeHtml(role)}">${chips}</div>`;
+  const iterativeBtn = showIterative
+    ? `<button
+        type="button"
+        class="msg-label-extra ${savedIterative ? "active" : ""}"
+        data-flag="iterative"
+        aria-pressed="${savedIterative ? "true" : "false"}"
+        title="Asked before in this conversation"
+        ${editable ? "" : "disabled"}
+      >iterative</button>`
+    : "";
+
+  return `
+    <div
+      class="msg-label-panel ${savedCode ? "is-saved" : ""}"
+      data-conv="${escapeHtml(String(convId))}"
+      data-msg="${escapeHtml(String(m.message_number))}"
+      data-role="${escapeHtml(role)}"
+      data-draft-code="${escapeHtml(savedCode)}"
+      data-draft-iterative="${savedIterative ? "1" : "0"}"
+    >
+      <div class="msg-label-row">
+        <div class="msg-label-seg" role="radiogroup" aria-label="Message label">${opts}</div>
+        ${iterativeBtn}
+      </div>
+      <div class="msg-label-form">
+        <textarea
+          class="msg-label-rationale"
+          rows="2"
+          placeholder="Rationale…"
+          ${editable ? "" : "disabled"}
+        >${escapeHtml(savedRationale)}</textarea>
+        <button type="button" class="msg-label-confirm" ${editable ? "" : "disabled"}>Confirm</button>
+      </div>
+      ${messageLabelStatusHtml(savedCode, savedIterative, row && row.updated_by)}
+    </div>`;
 }
 
-async function saveMessageLabels(convId, messageNumber, role, codes) {
+async function saveMessageLabel(convId, messageNumber, role, code, rationale, iterative = false) {
   if (!canEditBotLabels()) {
     alert("Only ruiwei or jiayi can edit message labels. Confirm your name at the top right.");
     if (selectedId) loadDetail(selectedId);
@@ -913,7 +1027,13 @@ async function saveMessageLabels(convId, messageNumber, role, codes) {
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ codes, editor: labelerName(), role }),
+      body: JSON.stringify({
+        code,
+        rationale,
+        iterative: !!iterative,
+        editor: labelerName(),
+        role,
+      }),
     }
   );
   if (!res.ok) {
@@ -924,11 +1044,11 @@ async function saveMessageLabels(convId, messageNumber, role, codes) {
   }
   const row = await res.json();
   const key = messageLabelKey(convId, messageNumber);
-  if (row.codes && row.codes.length) messageLabels[key] = row;
+  if (row.code) messageLabels[key] = row;
   else delete messageLabels[key];
   try {
     const all = JSON.parse(localStorage.getItem(MSG_LABELS_LOCAL_KEY) || "{}");
-    if (row.codes && row.codes.length) all[key] = row;
+    if (row.code) all[key] = row;
     else delete all[key];
     localStorage.setItem(MSG_LABELS_LOCAL_KEY, JSON.stringify(all));
   } catch {
@@ -938,35 +1058,84 @@ async function saveMessageLabels(convId, messageNumber, role, codes) {
 }
 
 function wireMessageLabelControls() {
-  detailPane.querySelectorAll(".msg-label-chip").forEach((el) => {
-    el.addEventListener("click", async (e) => {
+  detailPane.querySelectorAll(".msg-label-panel").forEach((panel) => {
+    const rationaleEl = panel.querySelector(".msg-label-rationale");
+    const confirmBtn = panel.querySelector(".msg-label-confirm");
+    const statusEl = panel.querySelector(".msg-label-status");
+    syncMessageLabelConfirm(panel);
+
+    panel.querySelectorAll(".msg-label-opt").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (btn.disabled) return;
+        const code = btn.dataset.code || "";
+        const next = panel.dataset.draftCode === code ? "" : code;
+        panel.dataset.draftCode = next;
+        panel.querySelectorAll(".msg-label-opt").forEach((opt) => {
+          const on = opt.dataset.code === next;
+          opt.classList.toggle("active", on);
+          opt.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        syncMessageLabelConfirm(panel);
+      });
+    });
+
+    panel.querySelectorAll(".msg-label-extra").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (btn.disabled) return;
+        const next = panel.dataset.draftIterative !== "1";
+        panel.dataset.draftIterative = next ? "1" : "0";
+        btn.classList.toggle("active", next);
+        btn.setAttribute("aria-pressed", next ? "true" : "false");
+        syncMessageLabelConfirm(panel);
+      });
+    });
+
+    rationaleEl?.addEventListener("input", () => syncMessageLabelConfirm(panel));
+    rationaleEl?.addEventListener("click", (e) => e.stopPropagation());
+
+    confirmBtn?.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (el.disabled) return;
-      const group = el.closest(".msg-labels");
-      if (!group) return;
+      if (confirmBtn.disabled) return;
+      const code = panel.dataset.draftCode || "";
+      const iterative = panel.dataset.draftIterative === "1";
+      const rationale = (rationaleEl?.value || "").trim();
+      if (!code || !rationale) return;
 
-      const next = [];
-      group.querySelectorAll(".msg-label-chip").forEach((chip) => {
-        const code = chip.dataset.code;
-        const willBeOn = chip === el ? !chip.classList.contains("active") : chip.classList.contains("active");
-        if (willBeOn) next.push(code);
-      });
-
-      // optimistic UI
-      group.querySelectorAll(".msg-label-chip").forEach((chip) => {
-        const on = next.includes(chip.dataset.code);
-        chip.classList.toggle("active", on);
-        chip.setAttribute("aria-pressed", on ? "true" : "false");
-      });
-
-      const saved = await saveMessageLabels(group.dataset.conv, group.dataset.msg, group.dataset.role, next);
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "Saving…";
+      const saved = await saveMessageLabel(
+        panel.dataset.conv,
+        panel.dataset.msg,
+        panel.dataset.role,
+        code,
+        rationale,
+        iterative
+      );
       if (!saved) return;
-      const finalCodes = selectedMessageCodes(saved);
-      group.querySelectorAll(".msg-label-chip").forEach((chip) => {
-        const on = finalCodes.includes(chip.dataset.code);
-        chip.classList.toggle("active", on);
-        chip.setAttribute("aria-pressed", on ? "true" : "false");
+
+      panel.dataset.draftCode = saved.code || "";
+      panel.dataset.draftIterative = saved.iterative ? "1" : "0";
+      if (rationaleEl) rationaleEl.value = saved.rationale || "";
+      panel.querySelectorAll(".msg-label-opt").forEach((opt) => {
+        const on = opt.dataset.code === (saved.code || "");
+        opt.classList.toggle("active", on);
+        opt.setAttribute("aria-pressed", on ? "true" : "false");
       });
+      panel.querySelectorAll(".msg-label-extra").forEach((opt) => {
+        const on = !!saved.iterative;
+        opt.classList.toggle("active", on);
+        opt.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      if (statusEl) {
+        statusEl.outerHTML = messageLabelStatusHtml(
+          saved.code || "",
+          !!saved.iterative,
+          saved.updated_by
+        );
+      }
+      syncMessageLabelConfirm(panel);
     });
   });
 }
@@ -1125,16 +1294,41 @@ function wirePromptActions(promptText) {
   }
 }
 
+function syncShortcutButtons() {
+  groupByBotBtn?.classList.toggle("active", groupByBot);
+  groupByUserBtn?.classList.toggle("active", groupByUser);
+  sortByTimeBtn?.classList.toggle("active", sortByTime);
+  needsAttentionBtn?.classList.toggle("danger-active", needsAttention);
+}
+
 function setNeedsAttention(on) {
   needsAttention = on;
-  needsAttentionBtn.classList.toggle("danger-active", on);
+  syncShortcutButtons();
   onFilterChanged();
 }
 
 function setGroupByBot(on) {
   groupByBot = on;
-  groupByBotBtn.classList.toggle("active", on);
+  syncShortcutButtons();
   renderList();
+}
+
+function setGroupByUser(on) {
+  groupByUser = on;
+  if (groupByUser) sortByTime = false;
+  else if (!sortByTime) sortByTime = true;
+  syncShortcutButtons();
+  if (groupByBot) renderBotMap();
+  else renderList();
+}
+
+function setSortByTime(on) {
+  sortByTime = on;
+  if (sortByTime) groupByUser = false;
+  else if (!groupByUser) groupByUser = true;
+  syncShortcutButtons();
+  if (groupByBot) renderBotMap();
+  else renderList();
 }
 
 function toggleAudienceFilter(key) {
@@ -1153,6 +1347,8 @@ searchInput.addEventListener("input", () => {
 });
 needsAttentionBtn.addEventListener("click", () => setNeedsAttention(!needsAttention));
 groupByBotBtn.addEventListener("click", () => setGroupByBot(!groupByBot));
+groupByUserBtn?.addEventListener("click", () => setGroupByUser(!groupByUser));
+sortByTimeBtn?.addEventListener("click", () => setSortByTime(!sortByTime));
 if (botMapLegend) {
   botMapLegend.addEventListener("click", (e) => {
     const sortEl = e.target.closest("[data-sort]");
@@ -1176,7 +1372,7 @@ if (botMapLegend) {
     wireColumnZoom();
     wireLabelerBox();
     applyDetailWidth();
-    groupByBotBtn.classList.toggle("active", groupByBot);
+    syncShortcutButtons();
     await loadBotLabels();
     await loadFilters();
     await loadList();

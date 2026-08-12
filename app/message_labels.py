@@ -13,6 +13,7 @@ ALLOWED_EDITORS = {"ruiwei", "jiayi"}
 
 BOT_MESSAGE_CODES = ["success", "fail", "others"]
 USER_MESSAGE_CODES = ["desired", "adversarial", "others"]
+USER_EXTRA_FLAGS = ["iterative"]
 _ALL_CODES = set(BOT_MESSAGE_CODES + USER_MESSAGE_CODES)
 
 _labels: dict[str, dict[str, Any]] = {}
@@ -44,46 +45,78 @@ def codes_for_role(role: str) -> list[str]:
     return []
 
 
+def extras_for_role(role: str) -> list[str]:
+    role_l = (role or "").strip().lower()
+    if role_l == "user":
+        return list(USER_EXTRA_FLAGS)
+    return []
+
+
 def _normalize_code(code: str) -> str:
     return (code or "").strip().lower()
 
 
-def _normalize_codes(raw: Any) -> list[str]:
-    values: list[str] = []
-    if isinstance(raw, str):
-        values = [raw]
-    elif isinstance(raw, list):
-        values = [str(v) for v in raw]
-    seen: set[str] = set()
-    out: list[str] = []
-    for value in values:
-        code = _normalize_code(value)
-        if not code or code not in _ALL_CODES or code in seen:
-            continue
-        seen.add(code)
-        out.append(code)
-    return out
+def _pick_code(code: str = "", codes: Any = None) -> str:
+    candidates: list[str] = []
+    if isinstance(codes, list):
+        candidates.extend(str(v) for v in codes)
+    elif isinstance(codes, str) and codes.strip():
+        candidates.append(codes)
+    if code:
+        candidates.insert(0, code)
+    for value in candidates:
+        normalized = _normalize_code(value)
+        if normalized in _ALL_CODES:
+            return normalized
+    return ""
+
+
+def _normalize_iterative(row: dict[str, Any], codes: Any = None) -> bool:
+    if bool(row.get("iterative")):
+        return True
+    extras = row.get("extras") or row.get("flags") or []
+    if isinstance(extras, list):
+        if any(_normalize_code(str(x)) == "iterative" for x in extras):
+            return True
+    values = codes if codes is not None else row.get("codes")
+    if isinstance(values, list):
+        if any(_normalize_code(str(x)) == "iterative" for x in values):
+            return True
+    return False
 
 
 def _row_from_legacy(row: dict[str, Any] | str) -> Optional[dict[str, Any]]:
     if isinstance(row, str):
-        codes = _normalize_codes(row)
-        if not codes:
+        code = _normalize_code(row)
+        if code not in _ALL_CODES:
             return None
-        return {"codes": codes, "code": codes[0], "role": "", "updated_by": "", "updated_at": ""}
+        return {
+            "code": code,
+            "codes": [code],
+            "iterative": False,
+            "rationale": "",
+            "role": "",
+            "updated_by": "",
+            "updated_at": "",
+        }
 
     if not isinstance(row, dict):
         return None
 
-    codes = _normalize_codes(row.get("codes"))
-    if not codes:
-        codes = _normalize_codes(row.get("code"))
-    if not codes:
+    code = _pick_code(row.get("code") or "", row.get("codes"))
+    if not code or code not in _ALL_CODES:
         return None
 
+    iterative = _normalize_iterative(row)
+    codes = [code]
+    if iterative:
+        codes.append("iterative")
+
     return {
+        "code": code,
         "codes": codes,
-        "code": codes[0],
+        "iterative": iterative,
+        "rationale": (row.get("rationale") or "").strip(),
         "role": (row.get("role") or "").strip().lower(),
         "updated_by": (row.get("updated_by") or "").strip(),
         "updated_at": (row.get("updated_at") or "").strip(),
@@ -114,6 +147,7 @@ def _write_file(path: Path, labels: dict[str, dict[str, Any]]) -> bool:
     payload = {
         "bot_codes": BOT_MESSAGE_CODES,
         "user_codes": USER_MESSAGE_CODES,
+        "user_extras": USER_EXTRA_FLAGS,
         "labels": labels,
         "updated_at": _now_iso(),
     }
@@ -153,6 +187,7 @@ def list_message_labels(conv_id: Optional[str] = None) -> dict[str, Any]:
     return {
         "bot_codes": BOT_MESSAGE_CODES,
         "user_codes": USER_MESSAGE_CODES,
+        "user_extras": USER_EXTRA_FLAGS,
         "editors": sorted(ALLOWED_EDITORS),
         "labels": labels,
         "count": len(labels),
@@ -162,10 +197,12 @@ def list_message_labels(conv_id: Optional[str] = None) -> dict[str, Any]:
 def set_message_label(
     conv_id: str,
     message_number: Union[str, int],
-    codes: Any,
     editor: str,
     role: str = "",
     code: str = "",
+    codes: Any = None,
+    rationale: str = "",
+    iterative: bool = False,
 ) -> dict[str, Any]:
     cid = (conv_id or "").strip()
     mid = str(message_number).strip()
@@ -179,17 +216,19 @@ def set_message_label(
     role_l = (role or "").strip().lower()
     allowed = set(codes_for_role(role_l) if role_l else list(_ALL_CODES))
 
-    selected = _normalize_codes(codes if codes not in (None, "", []) else code)
-    invalid = [c for c in selected if c not in allowed]
-    if invalid:
+    selected = _pick_code(code, codes)
+    rationale_norm = (rationale or "").strip()
+    iterative_on = bool(iterative) and role_l == "user"
+
+    if selected and selected not in allowed:
         raise ValueError(
-            f"Invalid code(s) for role {role_l or 'unknown'}: {', '.join(invalid)}. "
+            f"Invalid code for role {role_l or 'unknown'}: {selected}. "
             f"Allowed: {', '.join(sorted(allowed))}"
         )
-
-    # Keep role order stable
-    order = codes_for_role(role_l) if role_l else list(BOT_MESSAGE_CODES + USER_MESSAGE_CODES)
-    selected = [c for c in order if c in set(selected)]
+    if selected and not rationale_norm:
+        raise ValueError("Rationale is required")
+    if iterative_on and role_l != "user":
+        raise ValueError("iterative is only valid for user messages")
 
     load_message_labels()
     key = message_key(cid, mid)
@@ -200,16 +239,24 @@ def set_message_label(
             "key": key,
             "conv_id": cid,
             "message_number": mid,
-            "codes": [],
             "code": "",
+            "codes": [],
+            "iterative": False,
+            "rationale": "",
             "role": role_l,
             "updated_by": editor_norm,
             "updated_at": _now_iso(),
         }
 
+    stored_codes = [selected]
+    if iterative_on:
+        stored_codes.append("iterative")
+
     row = {
-        "codes": selected,
-        "code": selected[0],
+        "code": selected,
+        "codes": stored_codes,
+        "iterative": iterative_on,
+        "rationale": rationale_norm,
         "role": role_l,
         "updated_by": editor_norm,
         "updated_at": _now_iso(),
