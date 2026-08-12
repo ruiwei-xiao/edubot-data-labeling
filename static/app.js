@@ -1,16 +1,13 @@
-let view = "conversations"; // conversations | activities
 let items = [];
 let selectedId = null;
-let filterData = { activities: {}, conversations: {} };
+let filterData = { conversations: {} };
 let needsAttention = false;
-let builderOnly = false;
 let groupByBot = false;
+const audienceFilter = { builder: true, anonymous: true, other: true };
 let searchTimer = null;
 
 const appSelect = document.getElementById("appSelect");
 const userSelect = document.getElementById("userSelect");
-const modelSelect = document.getElementById("modelSelect");
-const modelFilterWrap = document.getElementById("modelFilterWrap");
 const searchInput = document.getElementById("searchInput");
 const itemList = document.getElementById("itemList");
 const detailPane = document.getElementById("detailPane");
@@ -20,12 +17,13 @@ const workspace = document.getElementById("workspace");
 const botMapView = document.getElementById("botMapView");
 const botMapGrid = document.getElementById("botMapGrid");
 const botMapCount = document.getElementById("botMapCount");
+const splitHandle = document.getElementById("splitHandle");
 const needsAttentionBtn = document.getElementById("needsAttentionBtn");
-const builderBtn = document.getElementById("builderBtn");
 const groupByBotBtn = document.getElementById("groupByBotBtn");
-const shortcutsBar = document.getElementById("shortcutsBar");
-const tabConversations = document.getElementById("tabConversations");
-const tabActivities = document.getElementById("tabActivities");
+const botMapLegend = document.querySelector(".bot-map-legend");
+
+const DETAIL_WIDTH_KEY = "playlab_detail_width";
+let detailWidth = Number(localStorage.getItem(DETAIL_WIDTH_KEY)) || 420;
 
 function initials(name) {
   return (
@@ -49,24 +47,6 @@ function normalizeOptions(values) {
   return (values || []).map((v) =>
     typeof v === "string" ? { name: v, count: null } : { name: v.name, count: v.count }
   );
-}
-
-function fillSelect(select, values, allLabel = "All", allCount = null) {
-  const current = select.value || "All";
-  const items = normalizeOptions(values);
-  const allText = allCount == null ? allLabel : `${allLabel} (${allCount})`;
-  select.innerHTML = `<option value="All">${allText}</option>`;
-  items.forEach(({ name, count }) => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = count == null ? name : `${name} (${count})`;
-    select.appendChild(opt);
-  });
-  if ([...select.options].some((o) => o.value === current)) {
-    select.value = current;
-  } else {
-    select.value = "All";
-  }
 }
 
 function closeAllCountSelects(except) {
@@ -147,65 +127,25 @@ function wireCountSelect(wrapId) {
 
 document.addEventListener("click", () => closeAllCountSelects());
 
-function setView(next) {
-  view = next;
-  selectedId = null;
-  tabConversations.classList.toggle("active", view === "conversations");
-  tabActivities.classList.toggle("active", view === "activities");
-  modelFilterWrap.style.display = view === "activities" ? "" : "none";
-  shortcutsBar.style.display = view === "conversations" ? "" : "none";
-  if (view !== "conversations") {
-    groupByBot = false;
-    builderOnly = false;
-    needsAttention = false;
-    groupByBotBtn.classList.remove("active");
-    builderBtn.classList.remove("active");
-    needsAttentionBtn.classList.remove("danger-active");
-  }
-  searchInput.placeholder =
-    view === "conversations" ? "Search conversations…" : "Search title, prompt…";
-  applyFilterOptions();
-  loadList();
-}
-
 function applyFilterOptions() {
-  if (view === "conversations") {
-    const c = filterData.conversations || {};
-    fillCountSelect("appSelectWrap", c.apps || [], c.apps_total ?? c.total ?? 0, onFilterChanged);
-    fillCountSelect("userSelectWrap", c.users || [], c.users_total ?? c.total ?? 0, onFilterChanged);
-    totalCount.textContent = `${c.total || 0} conversations · ${c.message_rows || 0} messages`;
-  } else {
-    const a = filterData.activities || {};
-    fillCountSelect("appSelectWrap", a.apps || [], a.apps_total ?? a.total ?? 0, onFilterChanged);
-    fillCountSelect("userSelectWrap", a.creators || [], a.creators_total ?? a.total ?? 0, onFilterChanged);
-    fillSelect(modelSelect, a.models || [], "All", a.models_total ?? a.total ?? 0);
-    totalCount.textContent = `${a.total || 0} system-prompt activities`;
-  }
+  const c = filterData.conversations || {};
+  fillCountSelect("appSelectWrap", c.apps || [], c.apps_total ?? c.total ?? 0, onFilterChanged);
+  fillCountSelect("userSelectWrap", c.users || [], c.users_total ?? c.total ?? 0, onFilterChanged);
+  totalCount.textContent = `${c.total || 0} conversations · ${c.message_rows || 0} messages`;
 }
 
 function filterQueryParams() {
   const params = new URLSearchParams();
-  if (view === "conversations") {
-    if (userSelect.value && userSelect.value !== "All") params.set("user", userSelect.value);
-    if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
-    if (builderOnly) params.set("builder_only", "true");
-    if (needsAttention) params.set("needs_attention", "true");
-  } else {
-    if (userSelect.value && userSelect.value !== "All") params.set("creator", userSelect.value);
-    if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
-    if (modelSelect.value && modelSelect.value !== "All") params.set("model", modelSelect.value);
-  }
+  if (userSelect.value && userSelect.value !== "All") params.set("user", userSelect.value);
+  if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
+  if (needsAttention) params.set("needs_attention", "true");
   return params;
 }
 
 async function refreshCascadingFilters() {
   const res = await fetch(`/api/filters?${filterQueryParams().toString()}`);
   const data = await res.json();
-  if (view === "conversations") {
-    filterData.conversations = data.conversations || filterData.conversations;
-  } else {
-    filterData.activities = data.activities || filterData.activities;
-  }
+  filterData.conversations = data.conversations || filterData.conversations;
   applyFilterOptions();
 }
 
@@ -225,30 +165,17 @@ function queryParams() {
   if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
   if (searchInput.value.trim()) params.set("q", searchInput.value.trim());
   if (needsAttention) params.set("needs_attention", "true");
-
-  if (view === "conversations") {
-    if (userSelect.value && userSelect.value !== "All") params.set("user", userSelect.value);
-    if (builderOnly) params.set("builder_only", "true");
-  } else {
-    if (userSelect.value && userSelect.value !== "All") params.set("creator", userSelect.value);
-    if (modelSelect.value && modelSelect.value !== "All") params.set("model", modelSelect.value);
-  }
+  if (userSelect.value && userSelect.value !== "All") params.set("user", userSelect.value);
   return params;
 }
 
 async function loadList() {
   itemList.innerHTML = `<div class="empty">Loading…</div>`;
-  const endpoint = view === "conversations" ? "/api/conversations" : "/api/activities";
-  const res = await fetch(`${endpoint}?${queryParams().toString()}`);
+  const res = await fetch(`/api/conversations?${queryParams().toString()}`);
   const data = await res.json();
 
-  if (view === "conversations") {
-    items = data.conversations || [];
-    listCount.textContent = `${data.count} conversation${data.count === 1 ? "" : "s"}`;
-  } else {
-    items = data.activities || [];
-    listCount.textContent = `${data.count} activit${data.count === 1 ? "y" : "ies"}`;
-  }
+  items = data.conversations || [];
+  listCount.textContent = `${data.count} conversation${data.count === 1 ? "" : "s"}`;
 
   if (!items.length) {
     itemList.innerHTML = `<div class="empty">No items match these filters</div>`;
@@ -291,31 +218,6 @@ function conversationItemHtml(c) {
     </button>`;
 }
 
-function activityItemHtml(a) {
-  return `
-    <button class="activity-item ${a.id === selectedId ? "selected" : ""}" data-id="${a.id}" type="button">
-      <div class="item-top">
-        <div class="item-title">${escapeHtml(a.title)}</div>
-        <div class="item-date">${escapeHtml(a.date)}</div>
-      </div>
-      <div class="item-bottom">
-        <div class="item-user">
-          <div class="avatar">${escapeHtml(initials(a.creator))}</div>
-          <div class="user-name">${escapeHtml(a.creator)}</div>
-        </div>
-        <div class="item-meta">
-          ${a.model ? `<span class="tag">${escapeHtml(a.model)}</span>` : ""}
-          <span class="msg-count" title="Reference files">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            </svg>
-            ${a.reference_file_count}
-          </span>
-        </div>
-      </div>
-    </button>`;
-}
-
 function botCardHtml(c) {
   return `
     <button class="bot-card ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button">
@@ -342,9 +244,25 @@ function botSectionHtml(label, className, sectionItems) {
     </div>`;
 }
 
+function conversationAudience(c) {
+  if (c.is_builder) return "builder";
+  if (c.user === "Anonymous") return "anonymous";
+  return "other";
+}
+
+function syncAudienceLegend() {
+  if (!botMapLegend) return;
+  botMapLegend.querySelectorAll("[data-audience]").forEach((btn) => {
+    const key = btn.dataset.audience;
+    btn.classList.toggle("active", !!audienceFilter[key]);
+    btn.setAttribute("aria-pressed", audienceFilter[key] ? "true" : "false");
+  });
+}
+
 function renderBotMap() {
+  const visibleItems = items.filter((c) => audienceFilter[conversationAudience(c)]);
   const groups = new Map();
-  items.forEach((c) => {
+  visibleItems.forEach((c) => {
     const key = c.title || "Untitled";
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(c);
@@ -355,7 +273,13 @@ function renderBotMap() {
     return diff !== 0 ? diff : a.localeCompare(b);
   });
 
-  botMapCount.textContent = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${items.length} conversations`;
+  botMapCount.textContent = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${visibleItems.length} conversations`;
+  syncAudienceLegend();
+
+  if (!sortedKeys.length) {
+    botMapGrid.innerHTML = `<div class="empty">No conversations for the selected audience filters.</div>`;
+    return;
+  }
 
   botMapGrid.innerHTML = sortedKeys
     .map((key) => {
@@ -370,15 +294,15 @@ function renderBotMap() {
             <div class="bot-column-title">${escapeHtml(key)}</div>
             <div class="bot-column-stats">
               <span>${groupItems.length} total</span>
-              <span>${builders.length} builder</span>
-              <span>${anonymous.length} anon</span>
-              ${others.length ? `<span>${others.length} other</span>` : ""}
+              ${audienceFilter.builder ? `<span>${builders.length} builder</span>` : ""}
+              ${audienceFilter.anonymous ? `<span>${anonymous.length} anon</span>` : ""}
+              ${audienceFilter.other && others.length ? `<span>${others.length} other</span>` : ""}
             </div>
           </div>
           <div class="bot-column-body">
-            ${botSectionHtml("Builder tests", "bot-section-builder", builders)}
-            ${botSectionHtml("Anonymous", "bot-section-anonymous", anonymous)}
-            ${others.length ? botSectionHtml("Other users", "bot-section-other", others) : ""}
+            ${audienceFilter.builder ? botSectionHtml("Builder tests", "bot-section-builder", builders) : ""}
+            ${audienceFilter.anonymous ? botSectionHtml("Anonymous", "bot-section-anonymous", anonymous) : ""}
+            ${audienceFilter.other && others.length ? botSectionHtml("Other users", "bot-section-other", others) : ""}
           </div>
         </div>`;
     })
@@ -393,25 +317,65 @@ function renderBotMap() {
   });
 }
 
+function applyDetailWidth() {
+  const minDetail = 280;
+  const maxDetail = Math.max(minDetail, window.innerWidth - 320);
+  detailWidth = Math.min(maxDetail, Math.max(minDetail, detailWidth));
+  workspace.style.setProperty("--detail-w", `${detailWidth}px`);
+}
+
 function updateLayoutMode() {
-  const mapOn = view === "conversations" && groupByBot;
+  const mapOn = groupByBot;
   workspace.classList.toggle("bot-map-mode", mapOn);
   botMapView.hidden = !mapOn;
+  splitHandle.hidden = !mapOn;
+  if (mapOn) applyDetailWidth();
+}
+
+function wireSplitHandle() {
+  if (!splitHandle || splitHandle.dataset.wired) return;
+  splitHandle.dataset.wired = "1";
+
+  let startX = 0;
+  let startWidth = 0;
+
+  const onMove = (e) => {
+    const dx = startX - e.clientX;
+    detailWidth = startWidth + dx;
+    applyDetailWidth();
+  };
+
+  const onUp = () => {
+    workspace.classList.remove("resizing");
+    localStorage.setItem(DETAIL_WIDTH_KEY, String(detailWidth));
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+  };
+
+  splitHandle.addEventListener("mousedown", (e) => {
+    if (botMapView.hidden) return;
+    e.preventDefault();
+    startX = e.clientX;
+    startWidth = detailWidth;
+    workspace.classList.add("resizing");
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  });
+
+  window.addEventListener("resize", () => {
+    if (!botMapView.hidden) applyDetailWidth();
+  });
 }
 
 function renderList() {
   updateLayoutMode();
 
-  if (view === "conversations" && groupByBot) {
+  if (groupByBot) {
     renderBotMap();
     return;
   }
 
-  if (view === "conversations") {
-    itemList.innerHTML = items.map(conversationItemHtml).join("");
-  } else {
-    itemList.innerHTML = items.map(activityItemHtml).join("");
-  }
+  itemList.innerHTML = items.map(conversationItemHtml).join("");
 
   itemList.querySelectorAll(".activity-item").forEach((el) => {
     el.addEventListener("click", () => {
@@ -435,6 +399,52 @@ function renderChips(itemsArr, muted = false) {
   return itemsArr.map((t) => `<span class="chip ${muted ? "muted" : ""}">${escapeHtml(t)}</span>`).join("");
 }
 
+function appConfigHtml(cfg) {
+  if (!cfg) {
+    return `<p class="prompt-config-missing">No matching app config found for this bot.</p>`;
+  }
+
+  const files = (cfg.reference_files || "")
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return `
+    <div class="prompt-config">
+      <div class="prompt-config-head">
+        <div class="prompt-config-title">App config${cfg.creator ? ` · ${escapeHtml(cfg.creator)}` : ""}</div>
+        ${
+          cfg.build_url
+            ? `<a class="linkish" href="${escapeHtml(cfg.build_url)}" target="_blank" rel="noopener">Open build</a>`
+            : ""
+        }
+      </div>
+      <div class="meta-grid meta-grid-compact">
+        <div class="meta-card"><div class="label">Model</div><div class="value">${escapeHtml(cfg.model || "—")}</div></div>
+        <div class="meta-card"><div class="label">Variability</div><div class="value">${escapeHtml(cfg.variability || "—")}</div></div>
+        <div class="meta-card"><div class="label">Style</div><div class="value">${escapeHtml(cfg.interaction_style || "—")}</div></div>
+        <div class="meta-card"><div class="label">Reference files</div><div class="value">${cfg.reference_file_count ?? 0}</div></div>
+      </div>
+      ${cfg.description ? `<div class="prompt-config-block"><div class="label">Description</div><p>${escapeHtml(cfg.description)}</p></div>` : ""}
+      ${cfg.welcome_message ? `<div class="prompt-config-block"><div class="label">Welcome message</div><p>${escapeHtml(cfg.welcome_message)}</p></div>` : ""}
+      <div class="prompt-config-block">
+        <div class="label">Enabled tools</div>
+        <div class="chip-row">${renderChips(cfg.enabled_tools)}</div>
+      </div>
+      <div class="prompt-config-block">
+        <div class="label">Enabled settings</div>
+        <div class="chip-row">${renderChips(cfg.enabled_settings, true)}</div>
+      </div>
+      ${
+        files.length
+          ? `<div class="prompt-config-block"><div class="label">Reference files</div><div class="file-list">${files
+              .map((f) => `<span>${escapeHtml(f)}</span>`)
+              .join("")}</div></div>`
+          : ""
+      }
+    </div>`;
+}
+
 async function loadDetail(id) {
   if (!id) {
     renderEmptyDetail();
@@ -442,21 +452,12 @@ async function loadDetail(id) {
   }
 
   detailPane.innerHTML = `<div class="empty">Loading detail…</div>`;
-  const endpoint =
-    view === "conversations"
-      ? `/api/conversations/${encodeURIComponent(id)}`
-      : `/api/activities/${encodeURIComponent(id)}`;
-  const res = await fetch(endpoint);
+  const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`);
   if (!res.ok) {
     detailPane.innerHTML = `<div class="empty">Failed to load detail</div>`;
     return;
   }
-  const data = await res.json();
-  if (view === "conversations") {
-    renderConversationDetail(data);
-  } else {
-    renderActivityDetail(data);
-  }
+  renderConversationDetail(await res.json());
 }
 
 function renderConversationDetail(c) {
@@ -494,8 +495,9 @@ function renderConversationDetail(c) {
       <div class="meta-card"><div class="label">Builder</div><div class="value">${c.is_builder ? "Yes" : "No"}</div></div>
     </div>
 
-    <div class="section">
+    <div class="section system-prompt-section">
       <h3>System prompt</h3>
+      ${appConfigHtml(c.app_config)}
       <pre class="prompt-body prompt-collapsed" id="promptBody">${escapeHtml(c.system_prompt || "(empty)")}</pre>
       <button type="button" class="linkish" id="expandPromptBtn">Show full prompt</button>
     </div>
@@ -507,61 +509,6 @@ function renderConversationDetail(c) {
   `;
 
   wirePromptActions(c.system_prompt || "");
-}
-
-function renderActivityDetail(a) {
-  const files = (a.reference_files || "")
-    .split(";")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  detailPane.innerHTML = `
-    <div class="detail-header">
-      <div>
-        <h1 class="detail-title">${escapeHtml(a.title)}</h1>
-        <div class="detail-sub">${escapeHtml(a.creator)} · ${escapeHtml(a.date)} · ${escapeHtml(a.app_name)}</div>
-      </div>
-      <div class="detail-actions">
-        ${a.url ? `<a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">Open in Playlab</a>` : ""}
-        <button type="button" id="copyPromptBtn">Copy prompt</button>
-      </div>
-    </div>
-
-    <div class="meta-grid">
-      <div class="meta-card"><div class="label">Model</div><div class="value">${escapeHtml(a.model || "—")}</div></div>
-      <div class="meta-card"><div class="label">Variability</div><div class="value">${escapeHtml(a.variability || "—")}</div></div>
-      <div class="meta-card"><div class="label">Style</div><div class="value">${escapeHtml(a.interaction_style || "—")}</div></div>
-      <div class="meta-card"><div class="label">Reference files</div><div class="value">${a.reference_file_count}</div></div>
-    </div>
-
-    ${a.description ? `<div class="section"><h3>Description</h3><p>${escapeHtml(a.description)}</p></div>` : ""}
-    ${a.welcome_message ? `<div class="section"><h3>Welcome message</h3><p>${escapeHtml(a.welcome_message)}</p></div>` : ""}
-
-    <div class="section">
-      <h3>System prompt</h3>
-      <pre class="prompt-body" id="promptBody">${escapeHtml(a.system_prompt || "(empty)")}</pre>
-    </div>
-
-    <div class="section">
-      <h3>Enabled tools</h3>
-      <div class="chip-row">${renderChips(a.enabled_tools)}</div>
-    </div>
-
-    <div class="section">
-      <h3>Enabled settings</h3>
-      <div class="chip-row">${renderChips(a.enabled_settings, true)}</div>
-    </div>
-
-    ${
-      files.length
-        ? `<div class="section"><h3>Reference files</h3><div class="file-list">${files
-            .map((f) => `<span>${escapeHtml(f)}</span>`)
-            .join("")}</div></div>`
-        : ""
-    }
-  `;
-
-  wirePromptActions(a.system_prompt || "");
 }
 
 function wirePromptActions(promptText) {
@@ -594,34 +541,42 @@ function setNeedsAttention(on) {
   onFilterChanged();
 }
 
-function setBuilderOnly(on) {
-  builderOnly = on;
-  builderBtn.classList.toggle("active", on);
-  onFilterChanged();
-}
-
 function setGroupByBot(on) {
   groupByBot = on;
   groupByBotBtn.classList.toggle("active", on);
   renderList();
 }
 
-tabConversations.addEventListener("click", () => setView("conversations"));
-tabActivities.addEventListener("click", () => setView("activities"));
-modelSelect.addEventListener("change", () => onFilterChanged());
+function toggleAudienceFilter(key) {
+  if (!(key in audienceFilter)) return;
+  const activeCount = Object.values(audienceFilter).filter(Boolean).length;
+  // Keep at least one audience visible
+  if (audienceFilter[key] && activeCount === 1) return;
+  audienceFilter[key] = !audienceFilter[key];
+  syncAudienceLegend();
+  renderBotMap();
+}
+
 searchInput.addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(loadList, 250);
 });
 needsAttentionBtn.addEventListener("click", () => setNeedsAttention(!needsAttention));
-builderBtn.addEventListener("click", () => setBuilderOnly(!builderOnly));
 groupByBotBtn.addEventListener("click", () => setGroupByBot(!groupByBot));
+if (botMapLegend) {
+  botMapLegend.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-audience]");
+    if (!btn) return;
+    toggleAudienceFilter(btn.dataset.audience);
+  });
+}
 
 (async function init() {
   try {
     wireCountSelect("appSelectWrap");
     wireCountSelect("userSelectWrap");
-    modelFilterWrap.style.display = "none";
+    wireSplitHandle();
+    applyDetailWidth();
     await loadFilters();
     await loadList();
   } catch (err) {

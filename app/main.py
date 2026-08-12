@@ -15,10 +15,8 @@ from app.conversations_loader import (
     load_conversations,
 )
 from app.data_loader import (
-    activity_list_item,
-    filter_activities,
-    get_activity,
-    get_filter_options,
+    activity_config_summary,
+    find_activity_by_title,
     load_activities,
 )
 
@@ -67,56 +65,15 @@ async def filters(
     app: Optional[str] = Query(default=None),
     builder_only: bool = Query(default=False),
     needs_attention: bool = Query(default=False),
-    creator: Optional[str] = Query(default=None),
-    model: Optional[str] = Query(default=None),
 ):
-    activity_opts = get_filter_options(creator=creator, app=app, model=model)
-    conv_opts = get_conversation_filter_options(
-        user=user,
-        app=app,
-        builder_only=builder_only,
-        needs_attention=needs_attention,
-    )
     return {
-        "activities": {
-            **activity_opts,
-            "total": len(load_activities()),
-        },
-        "conversations": conv_opts,
+        "conversations": get_conversation_filter_options(
+            user=user,
+            app=app,
+            builder_only=builder_only,
+            needs_attention=needs_attention,
+        ),
     }
-
-
-@app.get("/api/activities")
-async def list_activities(
-    creator: Optional[str] = Query(default=None),
-    app: Optional[str] = Query(default=None),
-    model: Optional[str] = Query(default=None),
-    q: Optional[str] = Query(default=None),
-    date_from: Optional[str] = Query(default=None),
-    date_to: Optional[str] = Query(default=None),
-    needs_attention: bool = Query(default=False),
-):
-    items = filter_activities(
-        creator=creator,
-        app=app,
-        model=model,
-        q=q,
-        date_from=date_from,
-        date_to=date_to,
-        needs_attention=needs_attention,
-    )
-    return {
-        "count": len(items),
-        "activities": [activity_list_item(a) for a in items],
-    }
-
-
-@app.get("/api/activities/{activity_id}")
-async def activity_detail(activity_id: str):
-    activity = get_activity(activity_id)
-    if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
-    return activity
 
 
 @app.get("/api/conversations")
@@ -145,7 +102,10 @@ async def conversation_detail(conv_id: str):
     conv = get_conversation(conv_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    return conv
+    payload = dict(conv)
+    activity = find_activity_by_title(conv.get("title") or "")
+    payload["app_config"] = activity_config_summary(activity) if activity else None
+    return payload
 
 
 @app.post("/api/refresh")

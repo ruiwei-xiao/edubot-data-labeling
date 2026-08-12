@@ -350,7 +350,7 @@ body {
 }
 
 .workspace.bot-map-mode {
-  grid-template-columns: 1fr minmax(320px, 420px);
+  grid-template-columns: minmax(280px, 1fr) 10px minmax(280px, var(--detail-w, 420px));
 }
 
 .workspace.bot-map-mode .sidebar {
@@ -359,6 +359,47 @@ body {
 
 .workspace.bot-map-mode .bot-map {
   display: flex;
+}
+
+.workspace.bot-map-mode .split-handle {
+  display: block;
+}
+
+.split-handle {
+  display: none;
+  width: 10px;
+  cursor: col-resize;
+  background: linear-gradient(90deg, transparent, #dbe3ef 40%, #dbe3ef 60%, transparent);
+  position: relative;
+  z-index: 5;
+}
+
+.split-handle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 36px;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.split-handle:hover::before,
+.workspace.resizing .split-handle::before {
+  background: #2563eb;
+}
+
+.workspace.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.workspace.resizing iframe,
+.workspace.resizing .bot-map,
+.workspace.resizing .detail {
+  pointer-events: none;
 }
 
 .sidebar {
@@ -398,25 +439,51 @@ body {
 }
 
 .legend-item {
+  font: inherit;
   font-size: 0.75rem;
   font-weight: 600;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 999px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  opacity: 0.42;
+  transition: opacity 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.legend-item:hover {
+  opacity: 0.75;
+}
+
+.legend-item.active {
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
 .legend-builder {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.legend-builder.active {
+  border-color: #3b82f6;
 }
 
 .legend-anonymous {
-  background: #f1f5f9;
-  color: #475569;
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.legend-anonymous.active {
+  border-color: #f97316;
 }
 
 .legend-other {
-  background: #ecfdf5;
-  color: #047857;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.legend-other.active {
+  border-color: #10b981;
 }
 
 .bot-map-grid {
@@ -486,18 +553,18 @@ body {
 }
 
 .bot-section-builder {
-  background: #f8fbff;
-  border: 1px solid #dbeafe;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
 }
 
 .bot-section-anonymous {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #ffedd5;
+  border: 1px solid #fdba74;
 }
 
 .bot-section-other {
-  background: #f6fdf9;
-  border: 1px solid #d1fae5;
+  background: #d1fae5;
+  border: 1px solid #6ee7b7;
 }
 
 .bot-section-label {
@@ -510,11 +577,30 @@ body {
 }
 
 .bot-section-builder .bot-section-label {
-  color: #1d4ed8;
+  color: #1e3a8a;
+}
+
+.bot-section-anonymous .bot-section-label {
+  color: #9a3412;
 }
 
 .bot-section-other .bot-section-label {
-  color: #047857;
+  color: #065f46;
+}
+
+.bot-section-builder .bot-card {
+  background: #f8fbff;
+  border-color: #bfdbfe;
+}
+
+.bot-section-anonymous .bot-card {
+  background: #fffaf5;
+  border-color: #fed7aa;
+}
+
+.bot-section-other .bot-card {
+  background: #f6fdf9;
+  border-color: #a7f3d0;
 }
 
 .bot-card {
@@ -805,6 +891,68 @@ body {
   color: #1f2937;
 }
 
+.system-prompt-section .prompt-body {
+  margin-top: 12px;
+}
+
+.prompt-config {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 4px;
+}
+
+.prompt-config-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.prompt-config-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #475569;
+}
+
+.prompt-config-missing {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 8px;
+}
+
+.prompt-config-block {
+  margin-top: 10px;
+}
+
+.prompt-config-block .label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+
+.prompt-config-block p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.meta-grid-compact {
+  margin-bottom: 0;
+}
+
+.meta-grid-compact .meta-card {
+  padding: 8px 10px;
+  box-shadow: none;
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -930,6 +1078,10 @@ body {
 
   .workspace.bot-map-mode {
     grid-template-columns: 1fr;
+  }
+
+  .workspace.bot-map-mode .split-handle {
+    display: none;
   }
 
   .sidebar {

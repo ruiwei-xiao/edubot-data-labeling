@@ -305,6 +305,41 @@ def get_activity(activity_id: str) -> Optional[dict[str, Any]]:
     return None
 
 
+def find_activity_by_title(title: str) -> Optional[dict[str, Any]]:
+    needle = (title or "").strip().lower()
+    if not needle:
+        return None
+    activities = list(load_activities())
+    for activity in activities:
+        if (activity.get("title") or "").strip().lower() == needle:
+            return activity
+    for activity in activities:
+        if (activity.get("app_name") or "").strip().lower() == needle:
+            return activity
+    return None
+
+
+def activity_config_summary(activity: dict[str, Any]) -> dict[str, Any]:
+    """Fields useful next to a conversation's system prompt."""
+    return {
+        "id": activity.get("id", ""),
+        "title": activity.get("title", ""),
+        "app_name": activity.get("app_name", ""),
+        "creator": activity.get("creator", ""),
+        "date": activity.get("date", ""),
+        "model": activity.get("model", ""),
+        "variability": activity.get("variability", ""),
+        "interaction_style": activity.get("interaction_style", ""),
+        "description": activity.get("description", ""),
+        "welcome_message": activity.get("welcome_message", ""),
+        "reference_files": activity.get("reference_files", ""),
+        "reference_file_count": activity.get("reference_file_count", 0),
+        "enabled_tools": list(activity.get("enabled_tools") or []),
+        "enabled_settings": list(activity.get("enabled_settings") or []),
+        "build_url": activity.get("url", ""),
+    }
+
+
 def activity_list_item(activity: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": activity["id"],

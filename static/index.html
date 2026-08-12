@@ -20,11 +20,6 @@
             <div class="brand-sub" id="totalCount">Loading…</div>
           </div>
         </div>
-
-        <div class="view-tabs" role="tablist">
-          <button type="button" class="view-tab active" data-view="conversations" id="tabConversations">Conversations</button>
-          <button type="button" class="view-tab" data-view="activities" id="tabActivities">System prompts</button>
-        </div>
       </div>
 
       <div class="topbar-row topbar-row-controls">
@@ -53,15 +48,9 @@
                 <input type="hidden" id="userSelect" value="All" />
               </div>
             </div>
-            <label class="filter" id="modelFilterWrap">
-              <span>Model</span>
-              <select id="modelSelect">
-                <option value="All">All</option>
-              </select>
-            </label>
             <label class="filter filter-search">
               <span>Search</span>
-              <input id="searchInput" type="search" placeholder="Search…" />
+              <input id="searchInput" type="search" placeholder="Search conversations…" />
             </label>
           </div>
         </section>
@@ -69,7 +58,6 @@
         <section class="control-panel shortcuts-panel" id="shortcutsBar">
           <div class="panel-label">Shortcuts</div>
           <div class="shortcut-actions">
-            <button id="builderBtn" class="chip-btn" type="button" title="Only Builder conversations">Builder</button>
             <button id="groupByBotBtn" class="chip-btn" type="button" title="Grid map: one column per bot">Group by bot</button>
             <button id="needsAttentionBtn" class="chip-btn" type="button" title="Only flagged conversations">Needs attention</button>
           </div>
@@ -90,14 +78,16 @@
       <section class="bot-map" id="botMapView" hidden>
         <div class="bot-map-toolbar">
           <div id="botMapCount" class="list-count">0 bots</div>
-          <div class="bot-map-legend">
-            <span class="legend-item legend-builder">Builder tests</span>
-            <span class="legend-item legend-anonymous">Anonymous</span>
-            <span class="legend-item legend-other">Other users</span>
+          <div class="bot-map-legend" role="group" aria-label="Audience filters">
+            <button type="button" class="legend-item legend-builder active" data-audience="builder" title="Show/hide Builder tests">Builder tests</button>
+            <button type="button" class="legend-item legend-anonymous active" data-audience="anonymous" title="Show/hide Anonymous">Anonymous</button>
+            <button type="button" class="legend-item legend-other active" data-audience="other" title="Show/hide Other users">Other users</button>
           </div>
         </div>
         <div class="bot-map-grid" id="botMapGrid"></div>
       </section>
+
+      <div class="split-handle" id="splitHandle" hidden title="Drag to resize"></div>
 
       <main class="detail" id="detailPane">
         <div class="empty-detail">
