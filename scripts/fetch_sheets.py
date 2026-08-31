@@ -25,6 +25,13 @@ from app.data_loader import (  # noqa: E402
     save_activities_cache,
     sheet_csv_url as activities_sheet_url,
 )
+from app.message_labels import (  # noqa: E402
+    LABELS_PATH,
+    _merge_label_stores,
+    _read_file,
+    build_message_labels_from_csv_text,
+    save_message_labels_snapshot,
+)
 
 
 def _fetch_with_fallback(label: str, url: str, fetch_fn, build_fn, save_fn, cache_path: Path, load_fn) -> int:
@@ -45,16 +52,41 @@ def _fetch_with_fallback(label: str, url: str, fetch_fn, build_fn, save_fn, cach
         raise RuntimeError(f"{label} fetch failed and no cache available: {err}") from err
 
 
+def _fetch_conversations_and_labels() -> int:
+    url = conversations_sheet_url()
+    try:
+        print("Fetching conversations from:", url)
+        text = fetch_sheet_csv(url)
+        rows = build_conversations_from_csv_text(text)
+        if not rows:
+            raise RuntimeError("conversations fetch returned 0 rows")
+        save_conversations_cache(rows)
+        print(f"Wrote {len(rows)} conversations -> {CONV_CACHE_PATH}")
+
+        labels = build_message_labels_from_csv_text(text)
+        existing = _read_file(LABELS_PATH)
+        # Keep previously saved labels (e.g. not yet visible in Sheet export);
+        # Sheet non-empty cells win for the same editor/message.
+        merged = _merge_label_stores(existing, labels, sheet_wins_nonempty=True)
+        if merged:
+            save_message_labels_snapshot(merged, LABELS_PATH)
+            print(
+                f"Wrote {len(merged)} message labels -> {LABELS_PATH} "
+                f"(sheet={len(labels)}, previous={len(existing)})"
+            )
+        else:
+            print("WARN: message labels extract returned 0 labeled rows")
+        return len(rows)
+    except Exception as err:
+        existing = load_conversations_cache()
+        if existing:
+            print(f"WARN: conversations fetch failed ({err}); keeping existing cache ({len(existing)} rows)")
+            return len(existing)
+        raise RuntimeError(f"conversations fetch failed and no cache available: {err}") from err
+
+
 def main() -> None:
-    _fetch_with_fallback(
-        "conversations",
-        conversations_sheet_url(),
-        fetch_sheet_csv,
-        build_conversations_from_csv_text,
-        save_conversations_cache,
-        CONV_CACHE_PATH,
-        load_conversations_cache,
-    )
+    _fetch_conversations_and_labels()
     _fetch_with_fallback(
         "activities",
         activities_sheet_url(),

@@ -4,6 +4,7 @@ import csv
 import io
 import json
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -13,6 +14,7 @@ from app.sheet_fetch import fetch_url_text
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 CACHE_PATH = DATA_DIR / "cache" / "activities.json"
+TMP_CACHE_PATH = Path("/tmp/playlab_activities.json")
 LOCAL_CSV_PATH = DATA_DIR / "playlab_activities_with_messages - system_prompt (origin).csv"
 
 DEFAULT_SHEET_ID = "1xNPMlwkfviJk2GuDdrVZHnBTOF2LILGSoKQo5IxDGaQ"
@@ -22,6 +24,8 @@ SETTING_PREFIX = "setting: "
 TOOL_PREFIX = "tool: "
 
 _cache: Optional[tuple[dict[str, Any], ...]] = None
+_last_sheet_fetch_at = 0.0
+SHEET_FETCH_MIN_INTERVAL_SEC = 8.0
 
 
 def sheet_csv_url(sheet_id: Optional[str] = None, tab: Optional[str] = None) -> str:
@@ -126,14 +130,27 @@ def build_activities_from_csv_text(text: str) -> list[dict[str, Any]]:
 
 
 def save_activities_cache(activities: list[dict[str, Any]], path: Path = CACHE_PATH) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(activities, ensure_ascii=False), encoding="utf-8")
+    payload = json.dumps(activities, ensure_ascii=False)
+    for target in (path, TMP_CACHE_PATH):
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(payload, encoding="utf-8")
+        except OSError:
+            continue
 
 
 def load_activities_cache(path: Path = CACHE_PATH) -> Optional[list[dict[str, Any]]]:
-    if not path.exists():
+    candidates: list[Path] = []
+    for candidate in (TMP_CACHE_PATH, path):
+        if candidate.exists():
+            candidates.append(candidate)
+    if not candidates:
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    newest = max(candidates, key=lambda p: p.stat().st_mtime)
+    try:
+        return json.loads(newest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def reload_activities() -> None:
@@ -142,13 +159,22 @@ def reload_activities() -> None:
 
 
 def load_activities(force_refresh: bool = False) -> tuple[dict[str, Any], ...]:
-    global _cache
+    global _cache, _last_sheet_fetch_at
     if _cache is not None and not force_refresh:
         return _cache
 
     cached = load_activities_cache()
     if cached is not None and not force_refresh:
         _cache = tuple(cached)
+        return _cache
+
+    now = time.time()
+    if (
+        force_refresh
+        and _cache is not None
+        and _last_sheet_fetch_at
+        and (now - _last_sheet_fetch_at) < SHEET_FETCH_MIN_INTERVAL_SEC
+    ):
         return _cache
 
     try:
@@ -159,8 +185,12 @@ def load_activities(force_refresh: bool = False) -> tuple[dict[str, Any], ...]:
         except OSError:
             pass
         _cache = tuple(activities)
+        _last_sheet_fetch_at = now
         return _cache
     except Exception as sheet_err:
+        if cached is not None:
+            _cache = tuple(cached)
+            return _cache
         if LOCAL_CSV_PATH.exists():
             with LOCAL_CSV_PATH.open(newline="", encoding="utf-8") as f:
                 activities = []

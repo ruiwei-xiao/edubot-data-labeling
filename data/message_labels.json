@@ -12,6 +12,2697 @@
   "user_extras": [
     "iterative"
   ],
-  "labels": {},
-  "updated_at": ""
+  "labels": {
+    "c:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "on task",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "2026-08-12T16:56:34+00:00"
+        }
+      }
+    },
+    "c:3": {
+      "by": {
+        "ruiwei": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial"
+          ],
+          "iterative": false,
+          "rationale": "x",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-12T17:00:51+00:00"
+        }
+      }
+    },
+    "1291:1": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "welcome message",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-12T22:44:38+00:00"
+        }
+      }
+    },
+    "1291:2": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-12T22:46:12+00:00"
+        }
+      }
+    },
+    "1291:3": {
+      "by": {
+        "ruiwei": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "student gave up",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-12T22:46:41+00:00"
+        }
+      }
+    },
+    "1351:1": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-12T22:51:36+00:00"
+        }
+      }
+    },
+    "341:1": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T05:41:46+00:00"
+        }
+      }
+    },
+    "341:2": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T05:41:49+00:00"
+        }
+      }
+    },
+    "341:3": {
+      "by": {
+        "ruiwei": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "give up",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T05:42:12+00:00"
+        }
+      }
+    },
+    "711:1": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "711:2": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "711:3": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1491:1": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1491:2": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1491:3": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1491:4": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1491:5": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "11:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "11:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "11:3": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:3": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:4": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:5": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:6": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:7": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:8": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "81:9": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "101:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:33:11+00:00"
+        }
+      }
+    },
+    "101:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "\"help V01A Financial Accounting students find accurate information about the course syllabus, assignments, exams, grading policies, Wiley access, and course\"",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:33:22+00:00"
+        }
+      }
+    },
+    "101:3": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "\"provide a clear, concise answer based only on the uploaded syllabus, schedule, assignment instructions, and course resources.\" The user asked for start date and the answer is quite long.",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:33:27+00:00"
+        }
+      }
+    },
+    "101:4": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:33:31+00:00"
+        }
+      }
+    },
+    "101:5": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "not concise?",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:33:36+00:00"
+        }
+      }
+    },
+    "131:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "131:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "131:3": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "131:4": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "131:5": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:1": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:2": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:3": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:4": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "follow instruction",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:5": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "maybe too long?",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:6": {
+      "by": {
+        "ruiwei": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial"
+          ],
+          "iterative": false,
+          "rationale": "accuracy&scope; red teaming",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:7": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:8": {
+      "by": {
+        "ruiwei": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial",
+            "iterative"
+          ],
+          "iterative": true,
+          "rationale": "accuracy&scope; red teaming",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:9": {
+      "by": {
+        "ruiwei": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:10": {
+      "by": {
+        "ruiwei": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial",
+            "iterative"
+          ],
+          "iterative": true,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "541:11": {
+      "by": {
+        "ruiwei": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "681:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:11+00:00"
+        }
+      }
+    },
+    "681:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:11+00:00"
+        }
+      }
+    },
+    "681:3": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:11+00:00"
+        }
+      }
+    },
+    "681:4": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:33+00:00"
+        }
+      }
+    },
+    "681:5": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:39+00:00"
+        }
+      }
+    },
+    "681:6": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:41+00:00"
+        }
+      }
+    },
+    "681:7": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:45+00:00"
+        }
+      }
+    },
+    "681:8": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:47+00:00"
+        }
+      }
+    },
+    "681:9": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:51+00:00"
+        }
+      }
+    },
+    "681:10": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:52+00:00"
+        }
+      }
+    },
+    "681:11": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:34:55+00:00"
+        }
+      }
+    },
+    "681:12": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:35:01+00:00"
+        }
+      }
+    },
+    "681:13": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:35:58+00:00"
+        }
+      }
+    },
+    "681:14": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:35:58+00:00"
+        }
+      }
+    },
+    "681:15": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:35:58+00:00"
+        }
+      }
+    },
+    "681:16": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:35:58+00:00"
+        }
+      }
+    },
+    "681:17": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:36:01+00:00"
+        }
+      }
+    },
+    "681:18": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:36:03+00:00"
+        }
+      }
+    },
+    "681:19": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:36:06+00:00"
+        }
+      }
+    },
+    "681:20": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "asking questions not specified in prompt",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:37:45+00:00"
+        }
+      }
+    },
+    "681:21": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:37:45+00:00"
+        }
+      }
+    },
+    "681:22": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:37:47+00:00"
+        }
+      }
+    },
+    "681:23": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:37:53+00:00"
+        }
+      }
+    },
+    "681:24": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "did not specify what to do when not sure",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:37:55+00:00"
+        }
+      }
+    },
+    "681:25": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:38:10+00:00"
+        }
+      }
+    },
+    "681:26": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "did not talk about visualization in prompt",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:38:17+00:00"
+        }
+      }
+    },
+    "681:27": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:38:25+00:00"
+        }
+      }
+    },
+    "681:28": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:38:27+00:00"
+        }
+      }
+    },
+    "681:29": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:38:30+00:00"
+        }
+      }
+    },
+    "681:30": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:38:32+00:00"
+        }
+      }
+    },
+    "681:31": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:42:15+00:00"
+        }
+      }
+    },
+    "681:32": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:42:15+00:00"
+        }
+      }
+    },
+    "681:33": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:42:15+00:00"
+        }
+      }
+    },
+    "681:34": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:42:17+00:00"
+        }
+      }
+    },
+    "681:35": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:42:31+00:00"
+        }
+      }
+    },
+    "681:36": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "asking questions not specified in prompt",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:42:44+00:00"
+        }
+      }
+    },
+    "681:37": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:43:02+00:00"
+        }
+      }
+    },
+    "681:38": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:43:04+00:00"
+        }
+      }
+    },
+    "681:39": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:43:08+00:00"
+        }
+      }
+    },
+    "681:40": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:43:11+00:00"
+        }
+      }
+    },
+    "681:41": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        },
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:43:14+00:00"
+        }
+      }
+    },
+    "701:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:3": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:4": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:5": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:6": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:7": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:8": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:9": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:10": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:11": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "should \"it's time to play outside, go for a walk, get some excercise\"",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:12": {
+      "by": {
+        "jiayi": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial"
+          ],
+          "iterative": false,
+          "rationale": "testing what happens if off topic?",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:13": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "If off-topic, tell users it might be better if we talked this over on a nice long walk outside",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:14": {
+      "by": {
+        "jiayi": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial"
+          ],
+          "iterative": false,
+          "rationale": "testing what happens if off topic?",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:15": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "\"If off-topic, tell users it might be better if we talked this over on a nice long walk outside\"",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:16": {
+      "by": {
+        "jiayi": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial"
+          ],
+          "iterative": false,
+          "rationale": "off-topic",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:17": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "\"If off-topic, tell users it might be better if we talked this over on a nice long walk outside\"",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:18": {
+      "by": {
+        "jiayi": {
+          "code": "adversarial",
+          "codes": [
+            "adversarial"
+          ],
+          "iterative": false,
+          "rationale": "testing jail break",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:19": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:20": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:21": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:22": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "701:23": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1431:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1431:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1431:3": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1431:4": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1431:5": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1441:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1441:2": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1441:3": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1441:4": {
+      "by": {
+        "jiayi": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1441:5": {
+      "by": {
+        "jiayi": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "Did not follow the workflow to ask for refelction.",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1501:1": {
+      "by": {
+        "jiayi": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1501:2": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1501:3": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1501:4": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1501:5": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1501:6": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1501:7": {
+      "by": {
+        "jiayi": {
+          "code": "others",
+          "codes": [
+            "others"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "jiayi",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1711:1": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1711:2": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1711:3": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1711:4": {
+      "by": {
+        "ruiwei": {
+          "code": "desired",
+          "codes": [
+            "desired"
+          ],
+          "iterative": false,
+          "rationale": "capability",
+          "role": "user",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1711:5": {
+      "by": {
+        "ruiwei": {
+          "code": "fail",
+          "codes": [
+            "fail"
+          ],
+          "iterative": false,
+          "rationale": "give up",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "",
+          "source": "sheet"
+        }
+      }
+    },
+    "1051:1": {
+      "by": {
+        "ruiwei": {
+          "code": "success",
+          "codes": [
+            "success"
+          ],
+          "iterative": false,
+          "rationale": "",
+          "role": "bot",
+          "updated_by": "ruiwei",
+          "updated_at": "2026-08-13T16:45:47+00:00"
+        }
+      }
+    }
+  },
+  "updated_at": "2026-08-13T16:45:47+00:00"
 }

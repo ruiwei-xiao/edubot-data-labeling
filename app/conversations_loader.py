@@ -5,6 +5,7 @@ import io
 import json
 import os
 import re
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -14,6 +15,7 @@ from app.sheet_fetch import fetch_url_text
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 CACHE_PATH = DATA_DIR / "cache" / "conversations.json"
+TMP_CACHE_PATH = Path("/tmp/playlab_conversations.json")
 LOCAL_CSV_PATH = DATA_DIR / "playlab_activities_with_messages - all_data_origin.csv"
 
 DEFAULT_SHEET_ID = "1xNPMlwkfviJk2GuDdrVZHnBTOF2LILGSoKQo5IxDGaQ"
@@ -25,6 +27,8 @@ CONTINUED_KEYS = [
 ]
 
 _cache: Optional[tuple[dict[str, Any], ...]] = None
+_last_sheet_fetch_at = 0.0
+SHEET_FETCH_MIN_INTERVAL_SEC = 8.0
 
 
 def sheet_csv_url(sheet_id: Optional[str] = None, tab: Optional[str] = None) -> str:
@@ -171,14 +175,27 @@ def build_conversations_from_csv_text(text: str) -> list[dict[str, Any]]:
 
 
 def save_conversations_cache(conversations: list[dict[str, Any]], path: Path = CACHE_PATH) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(conversations, ensure_ascii=False), encoding="utf-8")
+    payload = json.dumps(conversations, ensure_ascii=False)
+    for target in (path, TMP_CACHE_PATH):
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(payload, encoding="utf-8")
+        except OSError:
+            continue
 
 
 def load_conversations_cache(path: Path = CACHE_PATH) -> Optional[list[dict[str, Any]]]:
-    if not path.exists():
+    candidates: list[Path] = []
+    for candidate in (TMP_CACHE_PATH, path):
+        if candidate.exists():
+            candidates.append(candidate)
+    if not candidates:
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    newest = max(candidates, key=lambda p: p.stat().st_mtime)
+    try:
+        return json.loads(newest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def reload_conversations() -> None:
@@ -186,29 +203,59 @@ def reload_conversations() -> None:
     _cache = None
 
 
+def _is_suspicious_shrink(previous: list[dict[str, Any]], fresh: list[dict[str, Any]]) -> bool:
+    """Guard against truncated Google CSV exports wiping most conversations."""
+    if not previous or not fresh:
+        return bool(previous) and not fresh
+    if len(previous) < 100:
+        return False
+    return len(fresh) < max(50, int(len(previous) * 0.25))
+
+
 def load_conversations(force_refresh: bool = False) -> tuple[dict[str, Any], ...]:
-    global _cache
+    global _cache, _last_sheet_fetch_at
     if _cache is not None and not force_refresh:
         return _cache
 
-    # 1) Prefer prebuilt cache (Vercel build / local script)
+    # 1) Prefer prebuilt/tmp cache unless explicitly refreshing
     cached = load_conversations_cache()
     if cached is not None and not force_refresh:
         _cache = tuple(cached)
+        return _cache
+
+    # Dedupe rapid force-refresh calls (e.g. page init + parallel requests)
+    now = time.time()
+    if (
+        force_refresh
+        and _cache is not None
+        and _last_sheet_fetch_at
+        and (now - _last_sheet_fetch_at) < SHEET_FETCH_MIN_INTERVAL_SEC
+    ):
         return _cache
 
     # 2) Fetch Google Sheet
     try:
         text = fetch_sheet_csv()
         conversations = build_conversations_from_csv_text(text)
+        previous = list(_cache) if _cache is not None else (cached or [])
+        if _is_suspicious_shrink(previous, conversations):
+            # Keep previous snapshot; truncated export would drop most apps/users.
+            if previous:
+                _cache = tuple(previous)
+                _last_sheet_fetch_at = now
+                return _cache
         try:
             save_conversations_cache(conversations)
         except OSError:
             pass
         _cache = tuple(conversations)
+        _last_sheet_fetch_at = now
         return _cache
     except Exception as sheet_err:
-        # 3) Fallback local CSV
+        # 3) Fallback local CSV / existing cache
+        if cached is not None:
+            _cache = tuple(cached)
+            return _cache
         if LOCAL_CSV_PATH.exists():
             with LOCAL_CSV_PATH.open(newline="", encoding="utf-8") as f:
                 rows = list(csv.DictReader(f))
@@ -220,13 +267,49 @@ def load_conversations(force_refresh: bool = False) -> tuple[dict[str, Any], ...
         ) from sheet_err
 
 
+from app.message_labels import (
+    coded_conversation_ids,
+    conversation_coding_status,
+    conversation_is_coded,
+    disagreed_message_numbers_by_conv,
+    is_sample_conversation,
+    labeled_message_numbers_by_conv,
+)
+
+
+def _match_coding_filter(
+    conv: dict[str, Any],
+    coding: Optional[str],
+    coded_ids: set[str],
+    editor: Optional[str] = None,
+) -> bool:
+    coding_l = (coding or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if not coding_l or coding_l in {"all", "any"}:
+        return True
+    status = conversation_coding_status(conv, coded_ids, editor=editor)
+    if coding_l in {"coded", "code", "done"}:
+        return status == "coded"
+    if coding_l in {"uncoded", "not_coded", "pending"}:
+        return status == "uncoded"
+    if coding_l in {"not_sampled", "unsampled", "not_sample"}:
+        return status == "not_sampled"
+    return True
+
+
 def get_conversation_filter_options(
     user: Optional[str] = None,
     app: Optional[str] = None,
     builder_only: bool = False,
     needs_attention: bool = False,
+    coding: Optional[str] = None,
+    editor: Optional[str] = None,
+    disagreed: bool = False,
 ) -> dict[str, Any]:
     conversations = list(load_conversations())
+    labeled_by_conv = labeled_message_numbers_by_conv(editor)
+    coded_ids = coded_conversation_ids(conversations, labeled_by_conv, editor=editor)
+
+    disputed = disagreed_message_numbers_by_conv() if disagreed else {}
 
     def apply_base(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         out = rows
@@ -234,11 +317,14 @@ def get_conversation_filter_options(
             out = [c for c in out if c["is_builder"]]
         if needs_attention:
             out = [c for c in out if c["has_flagged"]]
+        if disagreed:
+            out = [c for c in out if disputed.get(c["id"])]
+        out = [c for c in out if _match_coding_filter(c, coding, coded_ids, editor=editor)]
         return out
 
     base = apply_base(conversations)
 
-    # Apps options ignore selected app; respect user/builder/attention
+    # Apps options ignore selected app; respect user/builder/attention/coding
     apps_source = base
     if user and user.lower() != "all":
         apps_source = [c for c in apps_source if c["user"] == user]
@@ -251,7 +337,7 @@ def get_conversation_filter_options(
         for name in sorted(app_counts.keys())
     ]
 
-    # Users options ignore selected user; respect app/builder/attention
+    # Users options ignore selected user; respect app/builder/attention/coding
     users_source = base
     if app and app.lower() != "all":
         users_source = [c for c in users_source if c["title"] == app]
@@ -264,10 +350,39 @@ def get_conversation_filter_options(
         for name in sorted(user_counts.keys())
     ]
 
+    # Coding counts ignore selected coding; respect other filters
+    coding_source = list(conversations)
+    if builder_only:
+        coding_source = [c for c in coding_source if c["is_builder"]]
+    if needs_attention:
+        coding_source = [c for c in coding_source if c["has_flagged"]]
+    if user and user.lower() != "all":
+        coding_source = [c for c in coding_source if c["user"] == user]
+    if app and app.lower() != "all":
+        coding_source = [c for c in coding_source if c["title"] == app]
+    coded_n = 0
+    uncoded_n = 0
+    not_sampled_n = 0
+    for c in coding_source:
+        status = conversation_coding_status(c, coded_ids, editor=editor)
+        if status == "coded":
+            coded_n += 1
+        elif status == "uncoded":
+            uncoded_n += 1
+        else:
+            not_sampled_n += 1
+
     dates = sorted({c["date"] for c in conversations if c["date"]})
     return {
         "users": users,
         "apps": apps,
+        "coding": [
+            {"name": "Coded", "count": coded_n},
+            {"name": "Not coded", "count": uncoded_n},
+            {"name": "Not sampled", "count": not_sampled_n},
+        ],
+        "coding_total": len(coding_source),
+        "coding_editor": (editor or "").strip().lower(),
         "dates": dates,
         "total": len(conversations),
         "apps_total": len(apps_source),
@@ -282,8 +397,13 @@ def filter_conversations(
     q: Optional[str] = None,
     builder_only: bool = False,
     needs_attention: bool = False,
+    coding: Optional[str] = None,
+    editor: Optional[str] = None,
+    disagreed: bool = False,
 ) -> list[dict[str, Any]]:
     results = list(load_conversations())
+    labeled_by_conv = labeled_message_numbers_by_conv(editor)
+    coded_ids = coded_conversation_ids(results, labeled_by_conv, editor=editor)
 
     if user and user.lower() != "all":
         results = [c for c in results if c["user"] == user]
@@ -293,6 +413,10 @@ def filter_conversations(
         results = [c for c in results if c["is_builder"]]
     if needs_attention:
         results = [c for c in results if c["has_flagged"]]
+    if disagreed:
+        disputed = disagreed_message_numbers_by_conv()
+        results = [c for c in results if disputed.get(c["id"])]
+    results = [c for c in results if _match_coding_filter(c, coding, coded_ids, editor=editor)]
 
     if q:
         needle = q.lower().strip()
@@ -315,9 +439,21 @@ def get_conversation(conv_id: str) -> Optional[dict[str, Any]]:
     return None
 
 
-def conversation_list_item(conv: dict[str, Any]) -> dict[str, Any]:
+def conversation_list_item(
+    conv: dict[str, Any],
+    coded_ids: Optional[set[str]] = None,
+    editor: Optional[str] = None,
+) -> dict[str, Any]:
+    cid = conv["id"]
+    ids = coded_ids
+    if ids is None:
+        ids = coded_conversation_ids(
+            [conv],
+            labeled_message_numbers_by_conv(editor),
+            editor=editor,
+        )
     return {
-        "id": conv["id"],
+        "id": cid,
         "title": conv["title"],
         "user": conv["user"],
         "user_raw": conv.get("user_raw") or conv["user"],
@@ -329,4 +465,7 @@ def conversation_list_item(conv: dict[str, Any]) -> dict[str, Any]:
         "is_builder": conv["is_builder"],
         "has_flagged": conv["has_flagged"],
         "flagged_count": conv["flagged_count"],
+        "is_sample": is_sample_conversation(cid),
+        "is_coded": conversation_is_coded(conv, ids, editor=editor),
+        "coding_editor": (editor or "").strip().lower(),
     }

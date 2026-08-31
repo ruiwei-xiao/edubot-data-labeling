@@ -12,10 +12,11 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from app.parser import SHEET_HEADERS, Conversation, all_sheet_rows, parse_playlab_pdf
+from app.sheet_labels import get_gspread_client  # noqa: F401 - re-export
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/drive",
 ]
 
 
@@ -45,16 +46,6 @@ def conversation_to_dict(conv: Conversation) -> dict:
             for m in conv.messages
         ],
     }
-
-
-def get_gspread_client(credentials_path: Optional[str] = None) -> gspread.Client:
-    path = credentials_path or os.environ.get("GOOGLE_CREDENTIALS_PATH")
-    if not path or not Path(path).exists():
-        raise FileNotFoundError(
-            "Google credentials not found. Set GOOGLE_CREDENTIALS_PATH to a service account JSON file."
-        )
-    creds = Credentials.from_service_account_file(path, scopes=SCOPES)
-    return gspread.authorize(creds)
 
 
 def export_to_google_sheet(

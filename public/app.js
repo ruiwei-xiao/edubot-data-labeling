@@ -2,11 +2,10 @@ let items = [];
 let selectedId = null;
 let filterData = { conversations: {} };
 let needsAttention = false;
+let disagreedOnly = false;
 let groupByBot = true;
 let groupByUser = true;
 let sortByTime = false;
-let costAnalysisOn = false;
-let costAnalysisData = null;
 const audienceFilter = { builder: true, anonymous: true, other: true };
 let botSort = { key: "total", dir: "desc" };
 let lastStackMax = { builder: 1, anonymous: 1, other: 0, total: 1 };
@@ -19,6 +18,7 @@ let botLabelCodes = [
 ];
 let botLabels = {}; // bot_title -> { code, updated_by, updated_at }
 let messageLabels = {}; // `${convId}:${msgNum}` -> { codes, role, ... }
+let currentLabelableMsgIds = []; // message_number strings for open conversation
 const BOT_MSG_CODES = ["success", "fail", "others"];
 const USER_MSG_CODES = ["desired", "adversarial", "others"];
 const ALLOWED_LABELERS = new Set(["ruiwei", "jiayi"]);
@@ -34,25 +34,21 @@ const CODE_SHORT = {
 
 const appSelect = document.getElementById("appSelect");
 const userSelect = document.getElementById("userSelect");
+const codingSelect = document.getElementById("codingSelect");
 const searchInput = document.getElementById("searchInput");
 const itemList = document.getElementById("itemList");
 const detailPane = document.getElementById("detailPane");
 const listCount = document.getElementById("listCount");
-const totalCount = document.getElementById("totalCount");
 const workspace = document.getElementById("workspace");
 const botMapView = document.getElementById("botMapView");
 const botMapGrid = document.getElementById("botMapGrid");
 const botMapCount = document.getElementById("botMapCount");
 const splitHandle = document.getElementById("splitHandle");
 const needsAttentionBtn = document.getElementById("needsAttentionBtn");
+const disagreedBtn = document.getElementById("disagreedBtn");
 const groupByBotBtn = document.getElementById("groupByBotBtn");
 const groupByUserBtn = document.getElementById("groupByUserBtn");
 const sortByTimeBtn = document.getElementById("sortByTimeBtn");
-const costAnalysisBtn = document.getElementById("costAnalysisBtn");
-const costAnalysisView = document.getElementById("costAnalysisView");
-const costAnalysisBody = document.getElementById("costAnalysisBody");
-const costAnalysisSub = document.getElementById("costAnalysisSub");
-const costAnalysisCloseBtn = document.getElementById("costAnalysisCloseBtn");
 const botMapLegend = document.querySelector(".bot-map-legend");
 const colZoomOut = document.getElementById("colZoomOut");
 const colZoomIn = document.getElementById("colZoomIn");
@@ -179,14 +175,55 @@ function applyFilterOptions() {
   const c = filterData.conversations || {};
   fillCountSelect("appSelectWrap", c.apps || [], c.apps_total ?? c.total ?? 0, onFilterChanged);
   fillCountSelect("userSelectWrap", c.users || [], c.users_total ?? c.total ?? 0, onFilterChanged);
-  totalCount.textContent = `${c.total || 0} conversations · ${c.message_rows || 0} messages`;
+  fillCountSelect("codingSelectWrap", c.coding || [], c.coding_total ?? c.total ?? 0, onFilterChanged);
+}
+
+function activeCodingEditor() {
+  if (!canEditBotLabels()) return "";
+  return labelerName().toLowerCase();
+}
+
+function msgLabelsStorageKey() {
+  const ed = activeCodingEditor();
+  return ed ? `${MSG_LABELS_LOCAL_KEY}:${ed}` : MSG_LABELS_LOCAL_KEY;
+}
+
+function codingQueryParam(label) {
+  const name = String(label || "").trim().toLowerCase();
+  if (name === "coded") return "coded";
+  if (name === "not coded") return "uncoded";
+  if (name === "not sampled") return "not_sampled";
+  return "";
 }
 
 function filterQueryParams() {
   const params = new URLSearchParams();
   if (userSelect.value && userSelect.value !== "All") params.set("user", userSelect.value);
   if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
+  const editor = activeCodingEditor();
+  if (editor) params.set("editor", editor);
+  if (editor && codingSelect?.value && codingSelect.value !== "All") {
+    const coding = codingQueryParam(codingSelect.value);
+    if (coding) params.set("coding", coding);
+  }
   if (needsAttention) params.set("needs_attention", "true");
+  if (disagreedOnly) params.set("disagreed", "true");
+  return params;
+}
+
+function queryParams() {
+  const params = new URLSearchParams();
+  if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
+  if (searchInput.value.trim()) params.set("q", searchInput.value.trim());
+  if (needsAttention) params.set("needs_attention", "true");
+  if (disagreedOnly) params.set("disagreed", "true");
+  if (userSelect.value && userSelect.value !== "All") params.set("user", userSelect.value);
+  const editor = activeCodingEditor();
+  if (editor) params.set("editor", editor);
+  if (editor && codingSelect?.value && codingSelect.value !== "All") {
+    const coding = codingQueryParam(codingSelect.value);
+    if (coding) params.set("coding", coding);
+  }
   return params;
 }
 
@@ -199,11 +236,6 @@ async function refreshCascadingFilters() {
 
 async function onFilterChanged() {
   await refreshCascadingFilters();
-  if (costAnalysisOn) {
-    updateLayoutMode();
-    await loadCostAnalysis();
-    return;
-  }
   await loadList();
 }
 
@@ -213,21 +245,8 @@ async function loadFilters() {
   applyFilterOptions();
 }
 
-function queryParams() {
-  const params = new URLSearchParams();
-  if (appSelect.value && appSelect.value !== "All") params.set("app", appSelect.value);
-  if (searchInput.value.trim()) params.set("q", searchInput.value.trim());
-  if (needsAttention) params.set("needs_attention", "true");
-  if (userSelect.value && userSelect.value !== "All") params.set("user", userSelect.value);
-  return params;
-}
 
 async function loadList() {
-  if (costAnalysisOn) {
-    updateLayoutMode();
-    await loadCostAnalysis();
-    return;
-  }
   itemList.innerHTML = `<div class="empty">Loading…</div>`;
   const res = await fetch(`/api/conversations?${queryParams().toString()}`);
   const data = await res.json();
@@ -250,9 +269,14 @@ async function loadList() {
   await loadDetail(selectedId);
 }
 
+function sampleCodingClass(c) {
+  if (!canEditBotLabels() || !c?.is_sample) return "";
+  return c.is_coded ? "sample-coded" : "sample-uncoded";
+}
+
 function conversationItemHtml(c) {
   return `
-    <button class="activity-item ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button">
+    <button class="activity-item ${sampleCodingClass(c)} ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button">
       <div class="item-top">
         <div class="item-title">${escapeHtml(groupByBot ? c.user : c.title)}</div>
         <div class="item-date">${escapeHtml(c.date)}</div>
@@ -263,6 +287,7 @@ function conversationItemHtml(c) {
           <div class="user-name">${escapeHtml(groupByBot ? c.title : c.user)}</div>
         </div>
         <div class="item-meta">
+          ${c.is_sample && canEditBotLabels() ? `<span class="tag sample-tag">Sample</span>` : ""}
           ${c.is_builder ? `<span class="tag">Builder</span>` : ""}
           ${c.has_flagged ? `<span class="tag" style="background:#fef2f2;color:#b91c1c">Flagged</span>` : ""}
           <span class="msg-count" title="Messages">
@@ -287,9 +312,13 @@ function sortConversationsByTime(list, dir = "desc") {
 
 function botCardHtml(c) {
   const audience = conversationAudience(c);
-  const tip = `${c.user} · ${c.date} · ${c.message_count} msgs`;
+  const tip = `${c.user} · ${c.date} · ${c.message_count} msgs${c.is_sample ? " · sample" : ""}${
+    c.is_sample ? (c.is_coded ? " · coded" : " · not coded") : ""
+  }`;
   return `
-    <button class="bot-card aud-${audience} ${c.id === selectedId ? "selected" : ""}" data-id="${c.id}" type="button" title="${escapeHtml(tip)}">
+    <button class="bot-card aud-${audience} ${sampleCodingClass(c)} ${
+    c.id === selectedId ? "selected" : ""
+  }" data-id="${c.id}" type="button" title="${escapeHtml(tip)}">
       <div class="bot-card-top">
         <div class="bot-card-user">${escapeHtml(c.user)}</div>
         <div class="bot-card-date">${escapeHtml(c.date)}</div>
@@ -324,11 +353,38 @@ function canEditBotLabels() {
   return labelerConfirmed && ALLOWED_LABELERS.has(labelerName().toLowerCase());
 }
 
+function refreshLabelerUi({ refetch = true } = {}) {
+  const canLabel = canEditBotLabels();
+  document.body.classList.toggle("is-labeler", canLabel);
+  const codingWrap = document.getElementById("codingFilter") || document.getElementById("codingSelectWrap")?.closest(".filter");
+  if (codingWrap) codingWrap.hidden = !canLabel;
+  if (!canLabel && codingSelect && codingSelect.value !== "All") {
+    codingSelect.value = "All";
+    const label = document.querySelector("#codingSelectWrap .count-select-label");
+    const count = document.querySelector("#codingSelectWrap .count-select-count");
+    if (label) label.textContent = "All";
+    if (count) count.textContent = "";
+  }
+  if (!refetch) {
+    if (groupByBot) renderBotMap();
+    else renderList();
+    if (selectedId) loadDetail(selectedId);
+    return;
+  }
+  // Coding counts / sample status are per editor — refetch when labeler changes.
+  onFilterChanged().then(() => {
+    if (selectedId) loadDetail(selectedId);
+  });
+}
+
 function syncLabelerStatus() {
   if (!labelerStatus) return;
   const name = labelerName();
   labelerStatus.classList.remove("can-edit", "blocked");
   botMapView?.classList.toggle("can-label", canEditBotLabels());
+  document.body.classList.toggle("is-labeler", canEditBotLabels());
+  const codingWrap = document.getElementById("codingFilter") || document.getElementById("codingSelectWrap")?.closest(".filter");
+  if (codingWrap) codingWrap.hidden = !canEditBotLabels();
   if (!name) {
     labelerStatus.textContent = "Enter name + Confirm";
     return;
@@ -352,8 +408,7 @@ function confirmLabeler() {
   labelerConfirmed = !!name;
   localStorage.setItem(`${LABELER_KEY}_confirmed`, labelerConfirmed ? "1" : "0");
   syncLabelerStatus();
-  if (groupByBot) renderBotMap();
-  if (selectedId) loadDetail(selectedId);
+  refreshLabelerUi();
 }
 
 function wireLabelerBox() {
@@ -365,14 +420,13 @@ function wireLabelerBox() {
 
   labelerNameInput.addEventListener("input", () => {
     // Changing the name requires Confirm again
+    const wasConfirmed = labelerConfirmed;
     labelerConfirmed = false;
     localStorage.setItem(LABELER_KEY, labelerNameInput.value);
     localStorage.setItem(`${LABELER_KEY}_confirmed`, "0");
     syncLabelerStatus();
-    if (groupByBot) renderBotMap();
-    detailPane.querySelectorAll(".msg-label-panel").forEach((panel) => {
-      setMessageLabelPanelEditable(panel, false);
-    });
+    // Only refetch coding stats when leaving a confirmed labeler session
+    refreshLabelerUi({ refetch: wasConfirmed });
   });
 
   labelerNameInput.addEventListener("keydown", (e) => {
@@ -397,8 +451,9 @@ function botLabelCode(botTitle) {
 }
 
 function botLevelLabelHtml(botTitle) {
+  if (!canEditBotLabels()) return "";
   const code = botLabelCode(botTitle);
-  const editable = canEditBotLabels();
+  const editable = true;
   const short = CODE_SHORT[code] || "—";
   const options = [`<option value="">Select code…</option>`]
     .concat(
@@ -755,169 +810,17 @@ function applyDetailWidth() {
 }
 
 function updateLayoutMode() {
-  const costOn = costAnalysisOn;
-  const mapOn = groupByBot && !costOn;
-  workspace.classList.toggle("cost-mode", costOn);
+  const mapOn = groupByBot;
   workspace.classList.toggle("bot-map-mode", mapOn);
-  if (costAnalysisView) costAnalysisView.hidden = !costOn;
   if (botMapView) botMapView.hidden = !mapOn;
   if (splitHandle) splitHandle.hidden = !mapOn;
-  if (detailPane) detailPane.hidden = !!costOn;
+  if (detailPane) detailPane.hidden = false;
   if (document.getElementById("sidebar")) {
-    document.getElementById("sidebar").hidden = !!costOn || mapOn;
+    document.getElementById("sidebar").hidden = mapOn;
   }
   if (mapOn) {
     applyDetailWidth();
     applyBotColWidth(false);
-  }
-}
-
-function formatUsd(n) {
-  const v = Number(n) || 0;
-  if (v >= 100) return `$${v.toFixed(2)}`;
-  if (v >= 1) return `$${v.toFixed(2)}`;
-  if (v >= 0.01) return `$${v.toFixed(3)}`;
-  return `$${v.toFixed(4)}`;
-}
-
-function formatTokens(n) {
-  const v = Number(n) || 0;
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}k`;
-  return String(v);
-}
-
-function renderCostAnalysis(data) {
-  if (!costAnalysisBody) return;
-  const summary = data.summary || {};
-  const bots = data.bots || [];
-  const models = data.models || [];
-
-  if (costAnalysisSub) {
-    costAnalysisSub.textContent = `${summary.bots || 0} bots · ${summary.conversations || 0} conversations · est. ${formatUsd(
-      summary.cost_usd
-    )} · respects current filters`;
-  }
-
-  const modelRows = models
-    .map(
-      (m) => `
-      <tr>
-        <td>${escapeHtml(m.model)}</td>
-        <td class="num">${m.bots}</td>
-        <td class="num">${m.conversations}</td>
-        <td class="num">${formatTokens(m.input_tokens)}</td>
-        <td class="num">${formatTokens(m.output_tokens)}</td>
-        <td class="num cost">${formatUsd(m.cost_usd)}</td>
-      </tr>`
-    )
-    .join("");
-
-  const botRows = bots
-    .map(
-      (b) => `
-      <tr>
-        <td class="bot-name">${escapeHtml(b.bot)}</td>
-        <td>${escapeHtml(b.model)}${b.model_matched ? "" : ' <span class="cost-warn">est.</span>'}</td>
-        <td class="num">${b.conversations}</td>
-        <td class="num">${b.messages}</td>
-        <td class="num">${formatTokens(b.input_tokens)}</td>
-        <td class="num">${formatTokens(b.output_tokens)}</td>
-        <td class="num">${formatUsd(b.input_cost_usd)}</td>
-        <td class="num">${formatUsd(b.output_cost_usd)}</td>
-        <td class="num cost">${formatUsd(b.cost_usd)}</td>
-      </tr>`
-    )
-    .join("");
-
-  costAnalysisBody.innerHTML = `
-    <div class="cost-summary">
-      <div class="cost-stat">
-        <div class="label">Estimated total</div>
-        <div class="value">${formatUsd(summary.cost_usd)}</div>
-      </div>
-      <div class="cost-stat">
-        <div class="label">Input tokens</div>
-        <div class="value">${formatTokens(summary.input_tokens)}</div>
-      </div>
-      <div class="cost-stat">
-        <div class="label">Output tokens</div>
-        <div class="value">${formatTokens(summary.output_tokens)}</div>
-      </div>
-      <div class="cost-stat">
-        <div class="label">Unknown model convs</div>
-        <div class="value">${summary.unknown_model_conversations || 0}</div>
-      </div>
-    </div>
-
-    <p class="cost-note">
-      Tokens ≈ characters / 4. Each bot reply billed with system prompt + prior messages as input.
-      Rates are approximate public list prices for Playlab model names. Not an invoice.
-    </p>
-
-    <div class="cost-section">
-      <h3>By model</h3>
-      <div class="cost-table-wrap">
-        <table class="cost-table">
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th class="num">Bots</th>
-              <th class="num">Convs</th>
-              <th class="num">Input</th>
-              <th class="num">Output</th>
-              <th class="num">Cost</th>
-            </tr>
-          </thead>
-          <tbody>${modelRows || `<tr><td colspan="6">No data</td></tr>`}</tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="cost-section">
-      <h3>By bot</h3>
-      <div class="cost-table-wrap">
-        <table class="cost-table">
-          <thead>
-            <tr>
-              <th>Bot</th>
-              <th>Model</th>
-              <th class="num">Convs</th>
-              <th class="num">Msgs</th>
-              <th class="num">Input</th>
-              <th class="num">Output</th>
-              <th class="num">In $</th>
-              <th class="num">Out $</th>
-              <th class="num">Cost</th>
-            </tr>
-          </thead>
-          <tbody>${botRows || `<tr><td colspan="9">No data</td></tr>`}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-async function loadCostAnalysis() {
-  if (!costAnalysisBody) return;
-  costAnalysisBody.innerHTML = `<div class="empty">Computing cost estimates…</div>`;
-  const res = await fetch(`/api/cost-analysis?${queryParams().toString()}`);
-  if (!res.ok) {
-    costAnalysisBody.innerHTML = `<div class="empty">Failed to load cost analysis</div>`;
-    return;
-  }
-  costAnalysisData = await res.json();
-  renderCostAnalysis(costAnalysisData);
-}
-
-async function setCostAnalysis(on) {
-  costAnalysisOn = on;
-  syncShortcutButtons();
-  updateLayoutMode();
-  if (costAnalysisOn) {
-    await loadCostAnalysis();
-  } else {
-    renderList();
   }
 }
 
@@ -1000,7 +903,6 @@ function wireSplitHandle() {
 
 function renderList() {
   updateLayoutMode();
-  if (costAnalysisOn) return;
 
   if (groupByBot) {
     renderBotMap();
@@ -1085,7 +987,13 @@ async function loadDetail(id) {
   }
 
   detailPane.innerHTML = `<div class="empty">Loading detail…</div>`;
-  const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`);
+  const params = new URLSearchParams();
+  const editor = activeCodingEditor();
+  if (editor) params.set("editor", editor);
+  const qs = params.toString();
+  const res = await fetch(
+    `/api/conversations/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`
+  );
   if (!res.ok) {
     detailPane.innerHTML = `<div class="empty">Failed to load detail</div>`;
     return;
@@ -1155,7 +1063,7 @@ function syncMessageLabelConfirm(panel) {
   const savedIterative = messageLabelIterative(saved);
   const dirty =
     code !== savedCode || rationale !== savedRationale || iterative !== savedIterative;
-  const ready = !!code && !!rationale && dirty;
+  const ready = !!code && dirty;
   confirmBtn.disabled = !canEditBotLabels() || !ready;
   confirmBtn.textContent = savedCode && !dirty ? "Saved" : "Confirm";
   panel.classList.toggle("is-saved", !!savedCode && !dirty);
@@ -1163,7 +1071,7 @@ function syncMessageLabelConfirm(panel) {
 }
 
 function messageLabelStatusHtml(code, iterative, updatedBy) {
-  if (!code) return `<div class="msg-label-status">Select a label, add rationale, then Confirm</div>`;
+  if (!code) return `<div class="msg-label-status">Select a label, then Confirm</div>`;
   const bits = [escapeHtml(code)];
   if (iterative) bits.push("iterative");
   return `<div class="msg-label-status">Labeled <strong>${bits.join(" · ")}</strong>${
@@ -1172,6 +1080,7 @@ function messageLabelStatusHtml(code, iterative, updatedBy) {
 }
 
 function messageLabelControlsHtml(convId, m) {
+  if (!canEditBotLabels()) return "";
   const role = (m.role || "").toLowerCase();
   const codes = messageCodesForRole(role);
   if (!codes.length) return "";
@@ -1225,7 +1134,7 @@ function messageLabelControlsHtml(convId, m) {
         <textarea
           class="msg-label-rationale"
           rows="2"
-          placeholder="Rationale…"
+          placeholder="Rationale (optional)…"
           ${editable ? "" : "disabled"}
         >${escapeHtml(savedRationale)}</textarea>
         <button type="button" class="msg-label-confirm" ${editable ? "" : "disabled"}>Confirm</button>
@@ -1265,14 +1174,52 @@ async function saveMessageLabel(convId, messageNumber, role, code, rationale, it
   if (row.code) messageLabels[key] = row;
   else delete messageLabels[key];
   try {
-    const all = JSON.parse(localStorage.getItem(MSG_LABELS_LOCAL_KEY) || "{}");
+    const storageKey = msgLabelsStorageKey();
+    const all = JSON.parse(localStorage.getItem(storageKey) || "{}");
     if (row.code) all[key] = row;
     else delete all[key];
-    localStorage.setItem(MSG_LABELS_LOCAL_KEY, JSON.stringify(all));
+    localStorage.setItem(storageKey, JSON.stringify(all));
   } catch {
     /* ignore */
   }
+  syncConversationCodedFlag(convId);
+  // Refresh Coding filter counts for this editor
+  refreshCascadingFilters().catch(() => {});
   return row;
+}
+
+function conversationFullyCoded(convId) {
+  const required =
+    String(selectedId) === String(convId) && currentLabelableMsgIds.length
+      ? currentLabelableMsgIds
+      : null;
+  if (required) {
+    return required.every((mid) => {
+      const row = messageLabels[messageLabelKey(convId, mid)];
+      return !!(row && String(row.code || "").trim());
+    });
+  }
+  const panels = [
+    ...detailPane.querySelectorAll(`.msg-label-panel[data-conv="${CSS.escape(String(convId))}"]`),
+  ];
+  if (panels.length) {
+    return panels.every((panel) => {
+      const row = messageLabels[messageLabelKey(convId, panel.dataset.msg)];
+      return !!(row && String(row.code || "").trim());
+    });
+  }
+  return false;
+}
+
+function syncConversationCodedFlag(convId) {
+  const item = items.find((c) => c.id === convId);
+  const coded = conversationFullyCoded(convId);
+  if (item) item.is_coded = coded;
+  const showSample = canEditBotLabels() && !!item?.is_sample;
+  document.querySelectorAll(`[data-id="${CSS.escape(String(convId))}"]`).forEach((el) => {
+    el.classList.toggle("sample-coded", showSample && coded);
+    el.classList.toggle("sample-uncoded", showSample && !coded);
+  });
 }
 
 function wireMessageLabelControls() {
@@ -1319,7 +1266,7 @@ function wireMessageLabelControls() {
       const code = panel.dataset.draftCode || "";
       const iterative = panel.dataset.draftIterative === "1";
       const rationale = (rationaleEl?.value || "").trim();
-      if (!code || !rationale) return;
+      if (!code) return;
 
       confirmBtn.disabled = true;
       confirmBtn.textContent = "Saving…";
@@ -1362,7 +1309,7 @@ function renderConversationDetail(c) {
   const convId = c.conv_id || c.id;
   messageLabels = { ...(c.message_labels || {}) };
   try {
-    const local = JSON.parse(localStorage.getItem(MSG_LABELS_LOCAL_KEY) || "{}");
+    const local = JSON.parse(localStorage.getItem(msgLabelsStorageKey()) || "{}");
     Object.entries(local).forEach(([key, row]) => {
       if (!key.startsWith(`${convId}:`)) return;
       const server = messageLabels[key];
@@ -1373,23 +1320,34 @@ function renderConversationDetail(c) {
   } catch {
     /* ignore */
   }
+  currentLabelableMsgIds = (c.messages || [])
+    .filter((m) => messageCodesForRole(m.role).length)
+    .map((m) => String(m.message_number));
+
+  const disagreedIds = new Set((c.disagreed_messages || []).map(String));
+  const disagreementDetails = c.disagreement_details || {};
 
   const messagesHtml = (c.messages || [])
-    .map(
-      (m) => `
-      <div class="bubble ${escapeHtml(m.role)} ${m.flagged ? "flagged" : ""}" data-role="${escapeHtml(
-        (m.role || "").toLowerCase()
-      )}">
+    .map((m) => {
+      const isDisagreed = disagreedIds.has(String(m.message_number));
+      return `
+      <div class="bubble ${escapeHtml(m.role)} ${m.flagged ? "flagged" : ""} ${
+        isDisagreed ? "disagreed" : ""
+      }" data-role="${escapeHtml((m.role || "").toLowerCase())}" data-disagreed="${
+        isDisagreed ? "1" : "0"
+      }">
         <div class="bubble-meta">
           <span class="bubble-role">${escapeHtml(m.role || "unknown")} · #${m.message_number}</span>
+          ${isDisagreed ? `<span class="bubble-disagreed">coders disagree</span>` : ""}
           <span class="bubble-time">${escapeHtml(m.datetime || "")}${
             m.time_since ? ` · ${escapeHtml(m.time_since)}` : ""
           }</span>
         </div>
         <div class="bubble-body">${escapeHtml(m.content || "")}</div>
+        ${isDisagreed ? disagreementDiffHtml(disagreementDetails[String(m.message_number)]) : ""}
         ${messageLabelControlsHtml(convId, m)}
-      </div>`
-    )
+      </div>`;
+    })
     .join("");
 
   detailPane.innerHTML = `
@@ -1432,6 +1390,11 @@ function renderConversationDetail(c) {
           <button type="button" class="chip-btn active" data-msg-filter="all">All</button>
           <button type="button" class="chip-btn" data-msg-filter="user">User</button>
           <button type="button" class="chip-btn" data-msg-filter="bot">Bot</button>
+          <button type="button" class="chip-btn" data-msg-filter="disagreed" ${
+            disagreedIds.size ? "" : "disabled"
+          } title="Messages the two coders coded differently">Disagreed${
+            disagreedIds.size ? ` · ${disagreedIds.size}` : ""
+          }</button>
         </div>
       </div>
       <div class="thread" id="messageThread">${messagesHtml || "<p>No messages</p>"}</div>
@@ -1441,6 +1404,7 @@ function renderConversationDetail(c) {
   wirePromptActions(c.system_prompt || "");
   wireMessageRoleFilter();
   wireMessageLabelControls();
+  syncConversationCodedFlag(convId);
 }
 
 function wireMessageRoleFilter() {
@@ -1455,7 +1419,8 @@ function wireMessageRoleFilter() {
       const show =
         filter === "all" ||
         (filter === "user" && role === "user") ||
-        (filter === "bot" && (role === "bot" || role === "assistant"));
+        (filter === "bot" && (role === "bot" || role === "assistant")) ||
+        (filter === "disagreed" && bubble.dataset.disagreed === "1");
       bubble.hidden = !show;
     });
     const visible = [...thread.querySelectorAll(".bubble")].some((b) => !b.hidden);
@@ -1512,12 +1477,52 @@ function wirePromptActions(promptText) {
   }
 }
 
+function disagreementDiffHtml(rows) {
+  if (!Array.isArray(rows) || rows.length < 2) return "";
+  const iterativeDiffers = new Set(rows.map((r) => !!r.iterative)).size > 1;
+
+  const lines = rows
+    .map((row, i) => {
+      const side = i === 0 ? "minus" : "plus";
+      const marker = i === 0 ? "−" : "+";
+      const flags = [];
+      if (row.iterative) flags.push("iterative");
+      return `
+        <div class="diff-line diff-${side}">
+          <span class="diff-marker">${marker}</span>
+          <span class="diff-editor">${escapeHtml(row.editor || "?")}</span>
+          <span class="diff-code">${escapeHtml(row.code || "—")}</span>
+          ${
+            flags.length
+              ? `<span class="diff-flags ${iterativeDiffers ? "differs" : ""}">${flags
+                  .map((f) => escapeHtml(f))
+                  .join(" · ")}</span>`
+              : ""
+          }
+          ${row.rationale ? `<span class="diff-rationale">${escapeHtml(row.rationale)}</span>` : ""}
+        </div>`;
+    })
+    .join("");
+
+  return `
+    <div class="disagreement-diff">
+      <div class="diff-head">Coding diff</div>
+      ${lines}
+    </div>`;
+}
+
 function syncShortcutButtons() {
-  groupByBotBtn?.classList.toggle("active", groupByBot && !costAnalysisOn);
-  groupByUserBtn?.classList.toggle("active", groupByUser && !costAnalysisOn);
-  sortByTimeBtn?.classList.toggle("active", sortByTime && !costAnalysisOn);
-  costAnalysisBtn?.classList.toggle("active", costAnalysisOn);
+  groupByBotBtn?.classList.toggle("active", groupByBot);
+  groupByUserBtn?.classList.toggle("active", groupByUser);
+  sortByTimeBtn?.classList.toggle("active", sortByTime);
   needsAttentionBtn?.classList.toggle("danger-active", needsAttention);
+  disagreedBtn?.classList.toggle("warn-active", disagreedOnly);
+}
+
+function setDisagreedOnly(on) {
+  disagreedOnly = on;
+  syncShortcutButtons();
+  onFilterChanged();
 }
 
 function setNeedsAttention(on) {
@@ -1527,14 +1532,12 @@ function setNeedsAttention(on) {
 }
 
 function setGroupByBot(on) {
-  if (costAnalysisOn) costAnalysisOn = false;
   groupByBot = on;
   syncShortcutButtons();
   renderList();
 }
 
 function setGroupByUser(on) {
-  if (costAnalysisOn) costAnalysisOn = false;
   groupByUser = on;
   if (groupByUser) sortByTime = false;
   else if (!sortByTime) sortByTime = true;
@@ -1543,7 +1546,6 @@ function setGroupByUser(on) {
 }
 
 function setSortByTime(on) {
-  if (costAnalysisOn) costAnalysisOn = false;
   sortByTime = on;
   if (sortByTime) groupByUser = false;
   else if (!groupByUser) groupByUser = true;
@@ -1566,11 +1568,10 @@ searchInput.addEventListener("input", () => {
   searchTimer = setTimeout(loadList, 250);
 });
 needsAttentionBtn.addEventListener("click", () => setNeedsAttention(!needsAttention));
+disagreedBtn?.addEventListener("click", () => setDisagreedOnly(!disagreedOnly));
 groupByBotBtn.addEventListener("click", () => setGroupByBot(!groupByBot));
 groupByUserBtn?.addEventListener("click", () => setGroupByUser(!groupByUser));
 sortByTimeBtn?.addEventListener("click", () => setSortByTime(!sortByTime));
-costAnalysisBtn?.addEventListener("click", () => setCostAnalysis(!costAnalysisOn));
-costAnalysisCloseBtn?.addEventListener("click", () => setCostAnalysis(false));
 if (botMapLegend) {
   botMapLegend.addEventListener("click", (e) => {
     const sortEl = e.target.closest("[data-sort]");
@@ -1590,6 +1591,7 @@ if (botMapLegend) {
   try {
     wireCountSelect("appSelectWrap");
     wireCountSelect("userSelectWrap");
+    wireCountSelect("codingSelectWrap");
     wireSplitHandle();
     wireControlsSplitHandle();
     wireColumnZoom();
@@ -1597,9 +1599,20 @@ if (botMapLegend) {
     applyDetailWidth();
     applyFiltersPanelWidth(false);
     syncShortcutButtons();
+    if (listCount) listCount.textContent = "Refreshing spreadsheet…";
+    if (botMapCount) botMapCount.textContent = "Refreshing spreadsheet…";
+    if (itemList) itemList.innerHTML = `<div class="empty">Pulling latest Google Sheet…</div>`;
+    // Every page load re-fetches spreadsheet data (conversations + labels).
+    const refreshRes = await fetch("/api/refresh", { method: "POST" });
+    if (!refreshRes.ok) throw new Error("Failed to refresh spreadsheet");
     await loadBotLabels();
     await loadFilters();
     await loadList();
+    const deepLinkId = new URLSearchParams(window.location.search).get("conv");
+    if (deepLinkId) {
+      selectedId = deepLinkId;
+      await loadDetail(deepLinkId);
+    }
   } catch (err) {
     itemList.innerHTML = `<div class="empty">Failed to load data: ${escapeHtml(err.message)}</div>`;
   }

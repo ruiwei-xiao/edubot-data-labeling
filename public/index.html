@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Playlab Browser</title>
+  <title>Playlab Chatlog Analyzer</title>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,10 +16,14 @@
         <div class="brand">
           <div class="brand-mark">P</div>
           <div>
-            <div class="brand-title">Playlab Browser</div>
-            <div class="brand-sub" id="totalCount">Loading…</div>
+            <div class="brand-title">Playlab Chatlog Analyzer</div>
           </div>
         </div>
+        <nav class="view-tabs" aria-label="Views">
+          <a class="view-tab active" href="/" aria-current="page">Browser</a>
+          <a class="view-tab" href="/cost_analysis">Cost analysis</a>
+          <a class="view-tab" href="/label_analysis">Intent &amp; outcome</a>
+        </nav>
         <div class="labeler-box">
           <label for="labelerNameInput">Labeler</label>
           <input
@@ -60,6 +64,17 @@
                 <input type="hidden" id="userSelect" value="All" />
               </div>
             </div>
+            <div class="filter" id="codingFilter" hidden>
+              <span>Coding</span>
+              <div class="count-select" id="codingSelectWrap" data-name="coding">
+                <button type="button" class="count-select-trigger" id="codingSelectTrigger">
+                  <span class="count-select-label">All</span>
+                  <span class="count-select-count" id="codingSelectCount"></span>
+                </button>
+                <div class="count-select-menu" id="codingSelectMenu" hidden></div>
+                <input type="hidden" id="codingSelect" value="All" />
+              </div>
+            </div>
             <label class="filter filter-search">
               <span>Search</span>
               <input id="searchInput" type="search" placeholder="Search conversations…" />
@@ -75,8 +90,8 @@
             <button id="groupByBotBtn" class="chip-btn" type="button" title="Grid map: one column per bot">Group by bot</button>
             <button id="groupByUserBtn" class="chip-btn" type="button" title="Within each bot, stack Builder / Anonymous / Other">Group by user</button>
             <button id="sortByTimeBtn" class="chip-btn" type="button" title="Within each bot, interleave conversations by time">Sort by time</button>
-            <button id="costAnalysisBtn" class="chip-btn" type="button" title="Estimate spend per bot from models + message volume">Cost analysis</button>
             <button id="needsAttentionBtn" class="chip-btn" type="button" title="Only flagged conversations">Needs attention</button>
+            <button id="disagreedBtn" class="chip-btn" type="button" title="Only bots where the two coders disagree on a message">Disagreed</button>
           </div>
         </section>
       </div>
@@ -129,19 +144,6 @@
           <p>Filter by teacher or app, then pick from the list.</p>
         </div>
       </main>
-
-      <section class="cost-analysis" id="costAnalysisView" hidden>
-        <div class="cost-analysis-toolbar">
-          <div>
-            <div class="cost-analysis-title">Cost analysis</div>
-            <div class="cost-analysis-sub" id="costAnalysisSub">Estimates from conversation text × model rates</div>
-          </div>
-          <button type="button" class="chip-btn" id="costAnalysisCloseBtn">Close</button>
-        </div>
-        <div class="cost-analysis-body" id="costAnalysisBody">
-          <div class="empty">Open Cost analysis to compute spend.</div>
-        </div>
-      </section>
     </div>
   </div>
 

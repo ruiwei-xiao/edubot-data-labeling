@@ -36,3 +36,21 @@ Env vars (optional):
 | `GOOGLE_SHEET_ID` | `1xNPMlwkfviJk2GuDdrVZHnBTOF2LILGSoKQo5IxDGaQ` |
 | `GOOGLE_SHEET_ALL_DATA_TAB` | `all_data_origin` |
 | `GOOGLE_SHEET_SYSTEM_PROMPT_TAB` | `system_prompt (origin)` |
+| `GOOGLE_CREDENTIALS_JSON` | *(optional)* service-account JSON string for Sheet write-back |
+| `GOOGLE_CREDENTIALS_PATH` | *(optional)* path to service-account JSON file |
+
+### Writing labels back to Google Sheet
+
+Message labels are still saved locally to `data/message_labels.json`, and **also synced** to tab `all_data_origin` columns:
+
+- `ruiwei_labeling` / `ruiwei_rationale`
+- `jiayi_labeling` / `jiayi_rationale`
+
+Setup:
+
+1. Create a Google Cloud service account and download its JSON key.
+2. Share the spreadsheet with that service account email as **Editor**.
+3. Set `GOOGLE_CREDENTIALS_JSON` (Vercel) or `GOOGLE_CREDENTIALS_PATH` (local).
+4. On first write, missing columns are auto-created on the sheet.
+
+If credentials are missing, labeling still works locally; Sheet sync is skipped.

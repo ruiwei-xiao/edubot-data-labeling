@@ -10,6 +10,7 @@ from pathlib import Path
 from app.bot_labels import list_labels, load_labels, set_bot_label
 from app.message_labels import list_message_labels, load_message_labels, set_message_label
 from app.cost_analysis import compute_cost_analysis
+from app.label_analysis import compute_label_analysis
 from app.conversations_loader import (
     conversation_list_item,
     filter_conversations,
@@ -63,20 +64,54 @@ async def index():
     return (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/cost_analysis", response_class=HTMLResponse)
+async def cost_analysis_page():
+    path = FRONTEND_DIR / "cost_analysis.html"
+    if not path.exists():
+        path = STATIC_DIR / "cost_analysis.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="cost_analysis.html not found")
+    return path.read_text(encoding="utf-8")
+
+
+@app.get("/label_analysis", response_class=HTMLResponse)
+async def label_analysis_page():
+    path = FRONTEND_DIR / "label_analysis.html"
+    if not path.exists():
+        path = STATIC_DIR / "label_analysis.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="label_analysis.html not found")
+    return path.read_text(encoding="utf-8")
+
+
+def _asset_response(name: str) -> FileResponse:
+    """Serve a frontend asset, revalidated on every load so edits show up."""
+    path = FRONTEND_DIR / name
+    if not path.exists():
+        path = STATIC_DIR / name
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"{name} not found")
+    return FileResponse(path, headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/styles.css")
 async def styles():
-    path = FRONTEND_DIR / "styles.css"
-    if not path.exists():
-        path = STATIC_DIR / "styles.css"
-    return FileResponse(path)
+    return _asset_response("styles.css")
 
 
 @app.get("/app.js")
 async def app_js():
-    path = FRONTEND_DIR / "app.js"
-    if not path.exists():
-        path = STATIC_DIR / "app.js"
-    return FileResponse(path)
+    return _asset_response("app.js")
+
+
+@app.get("/cost_analysis.js")
+async def cost_analysis_js():
+    return _asset_response("cost_analysis.js")
+
+
+@app.get("/label_analysis.js")
+async def label_analysis_js():
+    return _asset_response("label_analysis.js")
 
 
 @app.get("/api/filters")
@@ -85,6 +120,9 @@ async def filters(
     app: Optional[str] = Query(default=None),
     builder_only: bool = Query(default=False),
     needs_attention: bool = Query(default=False),
+    coding: Optional[str] = Query(default=None),
+    editor: Optional[str] = Query(default=None),
+    disagreed: bool = Query(default=False),
 ):
     return {
         "conversations": get_conversation_filter_options(
@@ -92,6 +130,9 @@ async def filters(
             app=app,
             builder_only=builder_only,
             needs_attention=needs_attention,
+            coding=coding,
+            editor=editor,
+            disagreed=disagreed,
         ),
     }
 
@@ -112,8 +153,11 @@ async def put_bot_label(bot_title: str, body: BotLabelUpdate):
 
 
 @app.get("/api/message-labels")
-async def get_message_labels(conv_id: Optional[str] = Query(default=None)):
-    return list_message_labels(conv_id=conv_id)
+async def get_message_labels(
+    conv_id: Optional[str] = Query(default=None),
+    editor: Optional[str] = Query(default=None),
+):
+    return list_message_labels(conv_id=conv_id, editor=editor)
 
 
 @app.put("/api/message-labels/{conv_id}/{message_number}")
@@ -152,6 +196,25 @@ async def cost_analysis(
     )
 
 
+@app.get("/api/label-analysis")
+async def label_analysis(
+    editor: Optional[str] = Query(default=None),
+    app: Optional[str] = Query(default=None),
+    user: Optional[str] = Query(default=None),
+    builder_only: bool = Query(default=False),
+    needs_attention: bool = Query(default=False),
+    sample_only: bool = Query(default=False),
+):
+    return compute_label_analysis(
+        editor=editor,
+        app=app,
+        user=user,
+        builder_only=builder_only,
+        needs_attention=needs_attention,
+        sample_only=sample_only,
+    )
+
+
 @app.get("/api/conversations")
 async def list_conversations(
     user: Optional[str] = Query(default=None),
@@ -159,29 +222,56 @@ async def list_conversations(
     q: Optional[str] = Query(default=None),
     builder_only: bool = Query(default=False),
     needs_attention: bool = Query(default=False),
+    coding: Optional[str] = Query(default=None),
+    editor: Optional[str] = Query(default=None),
+    disagreed: bool = Query(default=False),
 ):
+    from app.message_labels import (
+        coded_conversation_ids,
+        disagreed_message_numbers_by_conv,
+        labeled_message_numbers_by_conv,
+    )
+
     items = filter_conversations(
         user=user,
         app=app,
         q=q,
         builder_only=builder_only,
         needs_attention=needs_attention,
+        coding=coding,
+        editor=editor,
+        disagreed=disagreed,
     )
-    return {
-        "count": len(items),
-        "conversations": [conversation_list_item(c) for c in items],
-    }
+    labeled_by_conv = labeled_message_numbers_by_conv(editor)
+    coded_ids = coded_conversation_ids(items, labeled_by_conv, editor=editor)
+    disputed = disagreed_message_numbers_by_conv()
+    rows = []
+    for conv in items:
+        row = conversation_list_item(conv, coded_ids, editor=editor)
+        row["disagreed_count"] = len(disputed.get(conv["id"]) or ())
+        rows.append(row)
+    return {"count": len(rows), "conversations": rows}
 
 
 @app.get("/api/conversations/{conv_id}")
-async def conversation_detail(conv_id: str):
+async def conversation_detail(
+    conv_id: str,
+    editor: Optional[str] = Query(default=None),
+):
     conv = get_conversation(conv_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     payload = dict(conv)
     activity = find_activity_by_title(conv.get("title") or "")
     payload["app_config"] = activity_config_summary(activity) if activity else None
-    payload["message_labels"] = list_message_labels(conv_id=conv_id)["labels"]
+    payload["message_labels"] = list_message_labels(conv_id=conv_id, editor=editor)["labels"]
+    payload["coding_editor"] = (editor or "").strip().lower()
+
+    from app.message_labels import disagreement_details
+
+    details = disagreement_details(conv_id)
+    payload["disagreed_messages"] = sorted(details, key=lambda m: int(m) if m.isdigit() else 0)
+    payload["disagreement_details"] = details
     return payload
 
 
