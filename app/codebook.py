@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 CODEBOOKS_PATH = ROOT / "data" / "codebooks.json"
+TMP_CODEBOOKS_PATH = Path("/tmp/playlab_codebooks.json")
 LEGACY_CODEBOOK_PATH = ROOT / "data" / "codebook.json"
 
 FIELD_USER = "user_message"
@@ -478,77 +480,46 @@ def _migrate_legacy(saved: dict[str, Any]) -> dict[str, Any]:
     return {"active_id": "default", "codebooks": [_default_book()]}
 
 
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _read_store_file(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def _load_store() -> dict[str, Any]:
-    raw: dict[str, Any] = {}
-    if CODEBOOKS_PATH.exists():
-        try:
-            raw = json.loads(CODEBOOKS_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            raw = {}
-    elif LEGACY_CODEBOOK_PATH.exists():
-        try:
-            raw = json.loads(LEGACY_CODEBOOK_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            raw = {}
-    store = _migrate_legacy(raw if isinstance(raw, dict) else {})
+    candidates: list[dict[str, Any]] = []
+    for path in (CODEBOOKS_PATH, TMP_CODEBOOKS_PATH):
+        data = _read_store_file(path)
+        if data:
+            candidates.append(data)
+    if not candidates and LEGACY_CODEBOOK_PATH.exists():
+        candidates.append(_read_store_file(LEGACY_CODEBOOK_PATH))
+    if not candidates:
+        return _migrate_legacy({})
+    best = max(candidates, key=lambda s: str(s.get("updated_at") or ""))
+    store = _migrate_legacy(best)
+    if best.get("updated_at"):
+        store["updated_at"] = best["updated_at"]
     return store
 
 
-def apply_sheet_cache_to_store(store: dict[str, Any], payload: dict[str, Any]) -> None:
-    from app.codebook_loader import SHEET_CODEBOOK_ID
-
-    entries = [_normalize_entry(e) for e in (payload.get("entries") or [])]
-    if not entries:
-        return
-    book_id = str(payload.get("codebook_id") or SHEET_CODEBOOK_ID)
-    name = str(payload.get("name") or "codebook").strip() or "codebook"
-    books = store.setdefault("codebooks", [])
-    book = next((b for b in books if b.get("id") == book_id), None)
-    if not book:
-        book = {
-            "id": book_id,
-            "name": name,
-            "entries": [],
-            "preamble": DEFAULT_PREAMBLE,
-            "footer": DEFAULT_FOOTER,
-            "sheet_sync": True,
-        }
-        books.append(book)
-    book["name"] = name
-    book["entries"] = entries
-    book["sheet_sync"] = True
-    if payload.get("sheet_id"):
-        book["sheet_id"] = payload["sheet_id"]
-    if payload.get("tab"):
-        book["sheet_tab"] = payload["tab"]
-
-
-def sync_codebook_from_sheet(*, save: bool = True) -> dict[str, Any]:
-    from app.codebook_loader import fetch_and_cache_codebook
-
-    payload = fetch_and_cache_codebook()
-    store = _load_store()
-    apply_sheet_cache_to_store(store, payload)
-    if save:
-        _save_store(store)
-    return get_codebook()
-
-
-def reload_codebook_from_sheet_cache() -> dict[str, Any]:
-    from app.codebook_loader import load_codebook_sheet_cache
-
-    payload = load_codebook_sheet_cache()
-    if not payload.get("entries"):
-        return get_codebook()
-    store = _load_store()
-    apply_sheet_cache_to_store(store, payload)
-    _save_store(store)
-    return get_codebook()
-
-
 def _save_store(store: dict[str, Any]) -> None:
+    payload = {**store, "updated_at": _now_iso()}
+    text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     CODEBOOKS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CODEBOOKS_PATH.write_text(json.dumps(store, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    CODEBOOKS_PATH.write_text(text, encoding="utf-8")
+    try:
+        TMP_CODEBOOKS_PATH.write_text(text, encoding="utf-8")
+    except OSError:
+        pass
 
 
 def _active_book(store: dict[str, Any]) -> dict[str, Any]:
@@ -640,10 +611,6 @@ def save_active_codebook(payload: dict[str, Any]) -> dict[str, Any]:
             store["codebooks"][i] = book
             break
     _save_store(store)
-    if book.get("sheet_sync"):
-        from app.codebook_sheets import try_write_codebook_to_sheet
-
-        try_write_codebook_to_sheet(book.get("entries") or [])
     return get_codebook()
 
 

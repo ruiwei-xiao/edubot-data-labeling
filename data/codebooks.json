@@ -6,25 +6,6 @@
       "name": "Intent & outcome",
       "entries": [
         {
-          "id": "da8e7ddf",
-          "aspect": "user_message",
-          "aspect_label": "User Message",
-          "fields": [
-            "user_message"
-          ],
-          "code": "desired",
-          "label": "Desired",
-          "description": "The student is using the bot as the builder intended: asking for help, working through scaffolding, clarifying concepts, or refining their own thinking.",
-          "secondary_code": "",
-          "examples": [
-            "Can you explain why my answer is wrong?",
-            "Help me brainstorm a thesis for this essay.",
-            "What should I try next on this lab?"
-          ],
-          "boundary_rule": "Do not use when the student is mainly trying to get a finished answer, bypass guardrails, or test the bot.",
-          "not_this": "Do not use when the student is mainly trying to get a finished answer, bypass guardrails, or test the bot."
-        },
-        {
           "id": "17c8c95d",
           "aspect": "user_message",
           "aspect_label": "User Message",
@@ -44,23 +25,23 @@
           "not_this": "Frustration from typing/voice errors or product bugs alone is usually others, not adversarial."
         },
         {
-          "id": "031822f0",
+          "id": "da8e7ddf",
           "aspect": "user_message",
           "aspect_label": "User Message",
           "fields": [
             "user_message"
           ],
-          "code": "others",
-          "label": "Others",
-          "description": "The prompt does not clearly fit desired or adversarial: neutral chit-chat, unclear intent, platform/product issues, or messages hidden by moderation with no readable text.",
+          "code": "desired",
+          "label": "Desired",
+          "description": "The student is using the bot as the builder intended: asking for help, working through scaffolding, clarifying concepts, or refining their own thinking.",
           "secondary_code": "",
           "examples": [
-            "ok",
-            "The upload button is broken.",
-            "This message is hidden because…"
+            "Can you explain why my answer is wrong?",
+            "Help me brainstorm a thesis for this essay.",
+            "What should I try next on this lab?"
           ],
-          "boundary_rule": "Use desired or adversarial when the intent is reasonably clear.",
-          "not_this": "Use desired or adversarial when the intent is reasonably clear."
+          "boundary_rule": "Do not use when the student is mainly trying to get a finished answer, bypass guardrails, or test the bot.",
+          "not_this": "Do not use when the student is mainly trying to get a finished answer, bypass guardrails, or test the bot."
         },
         {
           "id": "e82c30a1",
@@ -82,22 +63,23 @@
           "is_flag": true
         },
         {
-          "id": "51873b16",
-          "aspect": "bot_message",
-          "aspect_label": "Bot Message",
+          "id": "031822f0",
+          "aspect": "user_message",
+          "aspect_label": "User Message",
           "fields": [
-            "bot_message"
+            "user_message"
           ],
-          "code": "success",
-          "label": "Success",
-          "description": "The bot reply helps the student toward a legitimate goal: accurate, on-task, appropriately scoped, and consistent with its system prompt and attached resources.",
+          "code": "others",
+          "label": "Others",
+          "description": "The prompt does not clearly fit desired or adversarial: neutral chit-chat, unclear intent, platform/product issues, or messages hidden by moderation with no readable text.",
           "secondary_code": "",
           "examples": [
-            "Guides the student with questions instead of dumping the answer.",
-            "Corrects a misconception using the uploaded reading."
+            "ok",
+            "The upload button is broken.",
+            "This message is hidden because…"
           ],
-          "boundary_rule": "A long but helpful reply can still be success; fail when it clearly hurts the interaction.",
-          "not_this": "A long but helpful reply can still be success; fail when it clearly hurts the interaction."
+          "boundary_rule": "Use desired or adversarial when the intent is reasonably clear.",
+          "not_this": "Use desired or adversarial when the intent is reasonably clear."
         },
         {
           "id": "fe9bc55c",
@@ -137,6 +119,24 @@
           "not_this": "Prefer success or fail when the outcome for the student is reasonably clear."
         },
         {
+          "id": "51873b16",
+          "aspect": "bot_message",
+          "aspect_label": "Bot Message",
+          "fields": [
+            "bot_message"
+          ],
+          "code": "success",
+          "label": "Success",
+          "description": "The bot reply helps the student toward a legitimate goal: accurate, on-task, appropriately scoped, and consistent with its system prompt and attached resources.",
+          "secondary_code": "",
+          "examples": [
+            "Guides the student with questions instead of dumping the answer.",
+            "Corrects a misconception using the uploaded reading."
+          ],
+          "boundary_rule": "A long but helpful reply can still be success; fail when it clearly hurts the interaction.",
+          "not_this": "A long but helpful reply can still be success; fail when it clearly hurts the interaction."
+        },
+        {
           "id": "d1d9d353",
           "aspect": "per_bot",
           "aspect_label": "Per Bot",
@@ -167,21 +167,6 @@
           "not_this": ""
         },
         {
-          "id": "8727ff25",
-          "aspect": "per_bot",
-          "aspect_label": "Per Bot",
-          "fields": [
-            "per_bot"
-          ],
-          "code": "Opportunistic exploration",
-          "label": "Opportunistic exploration",
-          "description": "Builder explores the bot casually or inconsistently.",
-          "secondary_code": "",
-          "examples": [],
-          "boundary_rule": "",
-          "not_this": ""
-        },
-        {
           "id": "bf3c8f3d",
           "aspect": "per_bot",
           "aspect_label": "Per Bot",
@@ -191,6 +176,21 @@
           "code": "No testing",
           "label": "No testing",
           "description": "Little or no builder testing evidence for this bot.",
+          "secondary_code": "",
+          "examples": [],
+          "boundary_rule": "",
+          "not_this": ""
+        },
+        {
+          "id": "8727ff25",
+          "aspect": "per_bot",
+          "aspect_label": "Per Bot",
+          "fields": [
+            "per_bot"
+          ],
+          "code": "Opportunistic exploration",
+          "label": "Opportunistic exploration",
+          "description": "Builder explores the bot casually or inconsistently.",
           "secondary_code": "",
           "examples": [],
           "boundary_rule": "",
@@ -489,10 +489,8 @@
         }
       ],
       "preamble": "You are a research coder labeling Playlab chatbot conversations.\nCode every labeled unit according to the codebook fields below.\n\nOutput one JSON object per label:\n{ \"target\": \"<field>\", \"id\": \"<message_number|conv_id|bot_title>\", \"code\": \"<code>\", \"iterative\": <bool>, \"rationale\": \"<short note>\" }\n\nRules:\n- Use codes exactly as defined in this codebook.\n- Set iterative=true only when the codebook marks a code as a flag for user messages, or when revisiting the same question/thread.\n- Add a brief rationale when the code is non-obvious.\n- Read the full conversation and the bot's system prompt before coding.\n\nCode definitions:",
-      "footer": "When uncertain:\n- Prefer an \"others\" / catch-all code over forcing a rare code.\n- If two coders would likely disagree, explain why in the rationale.",
-      "sheet_sync": true,
-      "sheet_id": "1XwkVPvlQ-kOys8OBn0jTEgYWme8YNqoibVLpkH_tED4",
-      "sheet_tab": "codebook"
+      "footer": "When uncertain:\n- Prefer an \"others\" / catch-all code over forcing a rare code.\n- If two coders would likely disagree, explain why in the rationale."
     }
-  ]
+  ],
+  "updated_at": "2026-09-01T04:18:41+00:00"
 }
