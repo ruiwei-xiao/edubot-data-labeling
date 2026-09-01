@@ -495,7 +495,10 @@
 
     return `
       <section class="codebook-pane codebook-pane-prompt">
-        <header class="codebook-pane-head">System prompt</header>
+        <header class="codebook-pane-head codebook-pane-head-prompt">
+          <span>System prompt</span>
+          <button type="button" class="chip-btn codebook-copy-btn" id="codebookCopyBtn" title="Copy full system prompt">Copy prompt</button>
+        </header>
         <div class="codebook-prompt-scroll">
           <div class="codebook-prompt-block" data-part="preamble">
             <div class="codebook-field-label">Preamble</div>
@@ -799,6 +802,23 @@
       book.footer = e.target.textContent.trim();
       scheduleSave();
     });
+
+    body.querySelector("#codebookCopyBtn")?.addEventListener("click", async () => {
+      if (!book) return;
+      try {
+        await navigator.clipboard.writeText(buildSystemPrompt());
+        const btn = body.querySelector("#codebookCopyBtn");
+        if (btn) {
+          const prev = btn.textContent;
+          btn.textContent = "Copied";
+          setTimeout(() => {
+            btn.textContent = prev;
+          }, 1200);
+        }
+      } catch {
+        /* ignore */
+      }
+    });
   }
 
   async function loadAndRender() {
@@ -833,22 +853,6 @@
       },
       { passive: false }
     );
-    document.getElementById("codebookCopyBtn")?.addEventListener("click", async () => {
-      if (!book) return;
-      try {
-        await navigator.clipboard.writeText(buildSystemPrompt());
-        const btn = document.getElementById("codebookCopyBtn");
-        if (btn) {
-          const prev = btn.textContent;
-          btn.textContent = "Copied";
-          setTimeout(() => {
-            btn.textContent = prev;
-          }, 1200);
-        }
-      } catch {
-        /* ignore */
-      }
-    });
     document.addEventListener("mouseup", () => {
       pressKey = null;
       document.querySelectorAll(".codebook-pressed").forEach((el) => el.classList.remove("codebook-pressed"));

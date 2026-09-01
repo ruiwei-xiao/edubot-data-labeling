@@ -4351,6 +4351,21 @@ body.is-labeler #codingFilter {
   flex-shrink: 0;
 }
 
+.codebook-pane-head-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.codebook-pane-head-prompt .codebook-copy-btn {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.72rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
 .codebook-table-wrap,
 .codebook-prompt-scroll {
   flex: 1 1 auto;
