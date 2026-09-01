@@ -496,7 +496,8 @@ def _read_store_file(path: Path) -> dict[str, Any]:
 
 def _load_store() -> dict[str, Any]:
     candidates: list[dict[str, Any]] = []
-    for path in (CODEBOOKS_PATH, TMP_CODEBOOKS_PATH):
+    # Prefer /tmp on serverless (writable); bundled data/codebooks.json is read-only there.
+    for path in (TMP_CODEBOOKS_PATH, CODEBOOKS_PATH):
         data = _read_store_file(path)
         if data:
             candidates.append(data)
@@ -514,12 +515,20 @@ def _load_store() -> dict[str, Any]:
 def _save_store(store: dict[str, Any]) -> None:
     payload = {**store, "updated_at": _now_iso()}
     text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-    CODEBOOKS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CODEBOOKS_PATH.write_text(text, encoding="utf-8")
+    saved = False
     try:
         TMP_CODEBOOKS_PATH.write_text(text, encoding="utf-8")
+        saved = True
     except OSError:
         pass
+    try:
+        CODEBOOKS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CODEBOOKS_PATH.write_text(text, encoding="utf-8")
+        saved = True
+    except OSError:
+        pass
+    if not saved:
+        raise OSError("Could not persist codebook to disk")
 
 
 def _active_book(store: dict[str, Any]) -> dict[str, Any]:

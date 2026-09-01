@@ -176,7 +176,10 @@ async def codebook():
 
 @app.put("/api/codebook")
 async def put_codebook(body: CodebookUpdate):
-    return save_active_codebook(body.model_dump())
+    try:
+        return save_active_codebook(body.model_dump())
+    except OSError as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
 
 
 @app.post("/api/codebook")

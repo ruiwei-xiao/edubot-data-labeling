@@ -196,7 +196,18 @@
         footer: book.footer,
       }),
     });
-    if (!res.ok) throw new Error("Failed to save codebook");
+    if (!res.ok) {
+      let detail = "Failed to save codebook";
+      try {
+        const err = await res.json();
+        if (err?.detail) {
+          detail = typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail);
+        }
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detail);
+    }
     applyResponse(await res.json());
     setSaveStatus("Saved", "ok");
     syncBookToolbar();
