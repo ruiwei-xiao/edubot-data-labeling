@@ -388,6 +388,7 @@ async def conversation_detail(
 async def refresh_data():
     from app.conversations_loader import reload_conversations
     from app.data_loader import reload_activities
+    from app.codebook import sync_codebook_from_sheet
 
     reload_activities()
     reload_conversations()
@@ -395,9 +396,12 @@ async def refresh_data():
     load_message_labels(force=True)
     activities = load_activities(force_refresh=True)
     conversations = load_conversations(force_refresh=True)
+    codebook = sync_codebook_from_sheet(save=True)
     return {
         "activities": len(activities),
         "conversations": len(conversations),
         "bot_labels": len(list_labels()["labels"]),
         "message_labels": len(list_message_labels()["labels"]),
+        "codebook_entries": len(codebook.get("entries") or []),
+        "codebook_sheet_sync": codebook.get("sheet_sync"),
     }

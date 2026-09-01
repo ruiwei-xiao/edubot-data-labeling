@@ -424,6 +424,7 @@ def _default_book(name: str = "Intent & outcome") -> dict[str, Any]:
         "entries": [_normalize_entry(e) for e in default_message_entries()],
         "preamble": DEFAULT_PREAMBLE,
         "footer": DEFAULT_FOOTER,
+        "sheet_sync": True,
     }
 
 
@@ -531,6 +532,48 @@ def _save_store(store: dict[str, Any]) -> None:
         raise OSError("Could not persist codebook to disk")
 
 
+def apply_sheet_entries_to_store(store: dict[str, Any], entries: list[dict[str, Any]], *, book_id: str) -> None:
+    from app.codebook_loader import sheet_book_id, sheet_id as codebook_sheet_id, sheet_tab
+
+    normalized = [_normalize_entry(e) for e in entries]
+    if not normalized:
+        return
+    bid = book_id or sheet_book_id()
+    books = store.setdefault("codebooks", [])
+    book = next((b for b in books if b.get("id") == bid), None)
+    if not book:
+        book = _default_book()
+        book["id"] = bid
+        books.append(book)
+    book["entries"] = normalized
+    book["sheet_sync"] = True
+    book["sheet_id"] = codebook_sheet_id()
+    book["sheet_tab"] = sheet_tab()
+
+
+def sync_codebook_from_sheet(*, save: bool = True) -> dict[str, Any]:
+    from app.codebook_loader import fetch_and_cache_codebook, sheet_book_id
+
+    payload = fetch_and_cache_codebook()
+    entries = payload.get("entries") or []
+    if not entries:
+        result = get_codebook()
+        result["sheet_sync"] = {"ok": False, "skipped": True, "reason": "no_entries"}
+        return result
+    store = _load_store()
+    apply_sheet_entries_to_store(store, entries, book_id=sheet_book_id())
+    if save:
+        _save_store(store)
+    result = get_codebook()
+    result["sheet_sync"] = {
+        "ok": True,
+        "pulled": len(entries),
+        "sheet_id": payload.get("sheet_id"),
+        "tab": payload.get("tab"),
+    }
+    return result
+
+
 def _active_book(store: dict[str, Any]) -> dict[str, Any]:
     books = store.get("codebooks") or []
     active = store.get("active_id")
@@ -605,6 +648,8 @@ def get_codebook(book_id: Optional[str] = None) -> dict[str, Any]:
 
 
 def save_active_codebook(payload: dict[str, Any]) -> dict[str, Any]:
+    from app.codebook_sheets import try_write_codebook_to_sheet
+
     store = _load_store()
     book = _active_book(store)
     if payload.get("name"):
@@ -620,7 +665,10 @@ def save_active_codebook(payload: dict[str, Any]) -> dict[str, Any]:
             store["codebooks"][i] = book
             break
     _save_store(store)
-    return get_codebook()
+    sheet_result = try_write_codebook_to_sheet(book.get("entries") or [])
+    result = get_codebook()
+    result["sheet_sync"] = sheet_result
+    return result
 
 
 def set_active_codebook(book_id: str) -> dict[str, Any]:

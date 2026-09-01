@@ -36,6 +36,9 @@ Env vars (optional):
 | `GOOGLE_SHEET_SYSTEM_PROMPT_TAB` | `system_prompt (origin)` |
 | `GOOGLE_CREDENTIALS_JSON` | *(optional)* service-account JSON string for Sheet write-back |
 | `GOOGLE_CREDENTIALS_PATH` | *(optional)* path to service-account JSON file |
+| `GOOGLE_CODEBOOK_SHEET_ID` | *(optional)* defaults to `GOOGLE_SHEET_ID` |
+| `GOOGLE_CODEBOOK_TAB` | `codebook` |
+| `GOOGLE_CODEBOOK_BOOK_ID` | `default` *(which local codebook syncs with the sheet)* |
 
 ### Writing labels back to Google Sheet
 
@@ -52,3 +55,12 @@ Setup:
 4. On first write, missing columns are auto-created on the sheet.
 
 If credentials are missing, labeling still works locally; Sheet sync is skipped.
+
+### Codebook ↔ Google Sheet
+
+The labeling codebook (`Intent & outcome`) lives on tab **`codebook`** in the **same spreadsheet** as conversations and message labels.
+
+- **Save in UI** → writes locally (`/tmp` on Vercel) **and** pushes rows to tab `codebook`
+- **Sync sheet** / deploy build → pulls tab `codebook` into the `default` codebook
+
+The service account already used for message labels needs **Editor** access on that spreadsheet (same as today). The `codebook` tab is created automatically on first write if missing.

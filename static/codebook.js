@@ -208,8 +208,17 @@
       }
       throw new Error(detail);
     }
-    applyResponse(await res.json());
-    setSaveStatus("Saved", "ok");
+    const data = await res.json();
+    applyResponse(data);
+    const sync = data.sheet_sync;
+    if (sync?.ok) setSaveStatus("Saved · synced to Sheet", "ok");
+    else if (sync?.skipped && sync.reason === "credentials_missing") {
+      setSaveStatus("Saved locally (no Sheet credentials)", "ok");
+    } else if (sync?.error) {
+      setSaveStatus(`Saved locally · Sheet failed: ${sync.error}`, "err");
+    } else {
+      setSaveStatus("Saved", "ok");
+    }
     syncBookToolbar();
   }
 
