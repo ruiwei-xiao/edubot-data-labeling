@@ -32,6 +32,7 @@ from app.message_labels import (  # noqa: E402
     build_message_labels_from_csv_text,
     save_message_labels_snapshot,
 )
+from app.codebook import sync_codebook_from_sheet  # noqa: E402
 
 
 def _fetch_with_fallback(label: str, url: str, fetch_fn, build_fn, save_fn, cache_path: Path, load_fn) -> int:
@@ -96,6 +97,17 @@ def main() -> None:
         ACT_CACHE_PATH,
         load_activities_cache,
     )
+    try:
+        sync_codebook_from_sheet(save=True)
+        from app.codebook_loader import SHEET_CODEBOOK_ID
+        from app.codebook import _load_store
+
+        store = _load_store()
+        book = next((b for b in store.get("codebooks", []) if b.get("id") == SHEET_CODEBOOK_ID), None)
+        entries = len((book or {}).get("entries") or [])
+        print(f"Synced codebook from Google Sheet ({entries} entries -> {SHEET_CODEBOOK_ID})")
+    except Exception as err:
+        print(f"WARN: codebook sheet sync failed ({err})")
 
 
 if __name__ == "__main__":

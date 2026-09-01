@@ -221,12 +221,47 @@ def _normalize_fields(raw: Any, role: str = "") -> list[str]:
 def _normalize_aspect(raw: dict[str, Any], fields: list[str]) -> str:
     explicit = str(raw.get("aspect") or "").strip()
     if explicit:
-        normalized = _normalize_fields([explicit])
-        if normalized:
-            return normalized[0]
+        key = explicit.lower().replace(" ", "_").replace("-", "_")
+        aliases = {
+            "user": FIELD_USER,
+            "user_message": FIELD_USER,
+            "bot": FIELD_BOT,
+            "bot_message": FIELD_BOT,
+            "assistant": FIELD_BOT,
+            "per_conversation": FIELD_CONV,
+            "conversation": FIELD_CONV,
+            "per_bot": FIELD_PER_BOT,
+            "bot_level": FIELD_PER_BOT,
+        }
+        key = aliases.get(key, key)
+        if key in FIELD_KEYS:
+            return key
+        return _slug(explicit)
     if fields:
-        return fields[0]
+        first = str(fields[0] or "").strip()
+        if first in FIELD_KEYS:
+            return first
+        if first:
+            return _slug(first)
     return FIELD_USER
+
+
+def _aspect_label_for(entry: dict[str, Any]) -> str:
+    label = str(entry.get("aspect_label") or "").strip()
+    if label:
+        return label
+    aspect = entry.get("aspect") or (entry.get("fields") or [FIELD_USER])[0]
+    return FIELD_LABELS.get(aspect, str(aspect).replace("_", " ").title())
+
+
+def aspect_options_for_entries(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
+    seen: dict[str, str] = {}
+    for field in FIELD_OPTIONS:
+        seen[field["key"]] = field["label"]
+    for entry in _sorted_entries(entries):
+        aspect = entry.get("aspect") or (entry.get("fields") or [FIELD_USER])[0]
+        seen[aspect] = _aspect_label_for(entry)
+    return [{"key": key, "label": label} for key, label in seen.items()]
 
 
 def _normalize_entry(raw: dict[str, Any]) -> dict[str, Any]:
@@ -246,6 +281,8 @@ def _normalize_entry(raw: dict[str, Any]) -> dict[str, Any]:
     entry = {
         "id": str(raw.get("id") or "").strip() or str(uuid.uuid4())[:8],
         "aspect": aspect,
+        "aspect_label": str(raw.get("aspect_label") or "").strip()
+        or FIELD_LABELS.get(aspect, aspect.replace("_", " ").title()),
         "fields": fields,
         "code": code_norm,
         "label": str(raw.get("label") or code_norm).strip(),
@@ -269,20 +306,20 @@ def _sorted_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     def sort_key(e: dict[str, Any]) -> tuple:
         aspect = e.get("aspect") or (e.get("fields") or [FIELD_USER])[0]
         primary = _FIELD_ORDER.get(aspect, 99)
-        return (primary, str(e.get("code") or "").lower())
+        aspect_label = _aspect_label_for(e).lower()
+        return (primary, aspect_label, str(e.get("code") or "").lower())
 
     return sorted(entries, key=sort_key)
 
 
 def section_heading(entry: dict[str, Any]) -> str:
-    aspect = entry.get("aspect") or (entry.get("fields") or [FIELD_USER])[0]
-    aspect_label = FIELD_LABELS.get(aspect, aspect)
+    aspect = _aspect_label_for(entry)
     code = entry.get("code") or ""
     secondary = str(entry.get("secondary_code") or "").strip()
     if entry.get("is_flag"):
-        heading = f"[FLAG · {aspect_label}] {code}"
+        heading = f"[FLAG · {aspect}] {code}"
     else:
-        heading = f"[{aspect_label}] {code}"
+        heading = f"[{aspect}] {code}"
     if secondary:
         heading += f" (secondary: {secondary})"
     return heading
@@ -453,7 +490,60 @@ def _load_store() -> dict[str, Any]:
             raw = json.loads(LEGACY_CODEBOOK_PATH.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             raw = {}
-    return _migrate_legacy(raw if isinstance(raw, dict) else {})
+    store = _migrate_legacy(raw if isinstance(raw, dict) else {})
+    return store
+
+
+def apply_sheet_cache_to_store(store: dict[str, Any], payload: dict[str, Any]) -> None:
+    from app.codebook_loader import SHEET_CODEBOOK_ID
+
+    entries = [_normalize_entry(e) for e in (payload.get("entries") or [])]
+    if not entries:
+        return
+    book_id = str(payload.get("codebook_id") or SHEET_CODEBOOK_ID)
+    name = str(payload.get("name") or "codebook").strip() or "codebook"
+    books = store.setdefault("codebooks", [])
+    book = next((b for b in books if b.get("id") == book_id), None)
+    if not book:
+        book = {
+            "id": book_id,
+            "name": name,
+            "entries": [],
+            "preamble": DEFAULT_PREAMBLE,
+            "footer": DEFAULT_FOOTER,
+            "sheet_sync": True,
+        }
+        books.append(book)
+    book["name"] = name
+    book["entries"] = entries
+    book["sheet_sync"] = True
+    if payload.get("sheet_id"):
+        book["sheet_id"] = payload["sheet_id"]
+    if payload.get("tab"):
+        book["sheet_tab"] = payload["tab"]
+
+
+def sync_codebook_from_sheet(*, save: bool = True) -> dict[str, Any]:
+    from app.codebook_loader import fetch_and_cache_codebook
+
+    payload = fetch_and_cache_codebook()
+    store = _load_store()
+    apply_sheet_cache_to_store(store, payload)
+    if save:
+        _save_store(store)
+    return get_codebook()
+
+
+def reload_codebook_from_sheet_cache() -> dict[str, Any]:
+    from app.codebook_loader import load_codebook_sheet_cache
+
+    payload = load_codebook_sheet_cache()
+    if not payload.get("entries"):
+        return get_codebook()
+    store = _load_store()
+    apply_sheet_cache_to_store(store, payload)
+    _save_store(store)
+    return get_codebook()
 
 
 def _save_store(store: dict[str, Any]) -> None:
@@ -510,9 +600,10 @@ def get_codebook(book_id: Optional[str] = None) -> dict[str, Any]:
     else:
         book = _active_book(store)
     active = _serialize_book(book)
+    aspect_opts = aspect_options_for_entries(active["entries"])
     return {
         "field_options": FIELD_OPTIONS,
-        "aspect_options": FIELD_OPTIONS,
+        "aspect_options": aspect_opts,
         "active_id": store["active_id"],
         "codebooks": [{"id": b["id"], "name": b["name"]} for b in store["codebooks"]],
         "active": active,
@@ -549,6 +640,10 @@ def save_active_codebook(payload: dict[str, Any]) -> dict[str, Any]:
             store["codebooks"][i] = book
             break
     _save_store(store)
+    if book.get("sheet_sync"):
+        from app.codebook_sheets import try_write_codebook_to_sheet
+
+        try_write_codebook_to_sheet(book.get("entries") or [])
     return get_codebook()
 
 
