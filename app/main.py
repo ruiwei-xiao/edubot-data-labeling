@@ -10,6 +10,7 @@ from pathlib import Path
 from app.bot_labels import list_labels, load_labels, set_bot_label
 from app.message_labels import list_message_labels, load_message_labels, set_message_label
 from app.cost_analysis import compute_cost_analysis
+from app.codebook import get_codebook, save_codebook
 from app.label_analysis import compute_label_analysis
 from app.conversations_loader import (
     conversation_list_item,
@@ -48,6 +49,22 @@ class MessageLabelUpdate(BaseModel):
     iterative: bool = Field(default=False)
     editor: str = Field(default="")
     role: str = Field(default="")
+
+
+class CodebookEntryUpdate(BaseModel):
+    role: str
+    code: str
+    label: str = Field(default="")
+    description: str = Field(default="")
+    examples: list[str] = Field(default_factory=list)
+    not_this: str = Field(default="")
+    is_flag: bool = Field(default=False)
+
+
+class CodebookUpdate(BaseModel):
+    entries: list[CodebookEntryUpdate] = Field(default_factory=list)
+    preamble: str = Field(default="")
+    footer: str = Field(default="")
 
 
 @app.on_event("startup")
@@ -112,6 +129,21 @@ async def cost_analysis_js():
 @app.get("/label_analysis.js")
 async def label_analysis_js():
     return _asset_response("label_analysis.js")
+
+
+@app.get("/codebook.js")
+async def codebook_js():
+    return _asset_response("codebook.js")
+
+
+@app.get("/api/codebook")
+async def codebook():
+    return get_codebook()
+
+
+@app.put("/api/codebook")
+async def put_codebook(body: CodebookUpdate):
+    return save_codebook(body.model_dump())
 
 
 @app.get("/api/filters")

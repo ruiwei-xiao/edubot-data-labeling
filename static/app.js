@@ -46,6 +46,7 @@ const botMapCount = document.getElementById("botMapCount");
 const splitHandle = document.getElementById("splitHandle");
 const needsAttentionBtn = document.getElementById("needsAttentionBtn");
 const disagreedBtn = document.getElementById("disagreedBtn");
+const syncSheetBtn = document.getElementById("syncSheetBtn");
 const groupByBotBtn = document.getElementById("groupByBotBtn");
 const groupByUserBtn = document.getElementById("groupByUserBtn");
 const sortByTimeBtn = document.getElementById("sortByTimeBtn");
@@ -61,9 +62,11 @@ const labelerStatus = document.getElementById("labelerStatus");
 let labelerConfirmed = false;
 
 const DETAIL_WIDTH_KEY = "playlab_detail_width";
+const CODEBOOK_WIDTH_KEY = "playlab_codebook_width";
 const FILTERS_PANEL_W_KEY = "playlab_filters_panel_w";
 const COL_WIDTH_KEY = "playlab_bot_col_width";
 let detailWidth = Number(localStorage.getItem(DETAIL_WIDTH_KEY)) || 420;
+let codebookWidth = Number(localStorage.getItem(CODEBOOK_WIDTH_KEY)) || 520;
 let filtersPanelWidthPct = Number(localStorage.getItem(FILTERS_PANEL_W_KEY)) || 58;
 let botColWidth = Number(localStorage.getItem(COL_WIDTH_KEY)) || 280;
 const COL_W_MIN = 12;
@@ -227,6 +230,46 @@ function queryParams() {
   return params;
 }
 
+async function refreshSpreadsheet({ silent = false } = {}) {
+  const markSyncing = (on) => {
+    if (!listCount && !botMapCount) return;
+    const base = listCount?.dataset.baseCount || botMapCount?.dataset.baseCount || "";
+    const text = on
+      ? `${base}${base ? " · " : ""}Syncing sheet…`
+      : base || listCount?.textContent || "";
+    if (listCount) listCount.textContent = text;
+    if (botMapCount && groupByBot) {
+      botMapCount.textContent = on ? "Syncing sheet…" : botMapCount.dataset.baseCount || text;
+    }
+  };
+
+  markSyncing(true);
+  try {
+    const res = await fetch("/api/refresh", { method: "POST" });
+    if (!res.ok) throw new Error("Failed to refresh spreadsheet");
+    await loadBotLabels();
+    await refreshCascadingFilters();
+    await loadList();
+    if (selectedId) await loadDetail(selectedId);
+    return true;
+  } catch (err) {
+    if (!silent) console.warn("Background sheet sync failed:", err);
+    return false;
+  } finally {
+    markSyncing(false);
+  }
+}
+
+function updateListCountLabel() {
+  if (!listCount) return;
+  const n = items.length;
+  const bots = new Set(items.map((i) => i.title)).size;
+  const base = groupByBot ? `${bots} bots · ${n} conversations` : `${n} conversations`;
+  listCount.dataset.baseCount = base;
+  listCount.textContent = base;
+  if (botMapCount) botMapCount.dataset.baseCount = `${bots} bots · ${n} conversations`;
+}
+
 async function refreshCascadingFilters() {
   const res = await fetch(`/api/filters?${filterQueryParams().toString()}`);
   const data = await res.json();
@@ -252,7 +295,7 @@ async function loadList() {
   const data = await res.json();
 
   items = data.conversations || [];
-  listCount.textContent = `${data.count} conversation${data.count === 1 ? "" : "s"}`;
+  updateListCountLabel();
 
   if (!items.length) {
     itemList.innerHTML = `<div class="empty">No items match these filters</div>`;
@@ -606,7 +649,9 @@ function renderBotMap() {
     return diff !== 0 ? diff : a.localeCompare(b);
   });
 
-  botMapCount.textContent = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${visibleItems.length} conversations`;
+  const botMapLabel = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${visibleItems.length} conversations`;
+  botMapCount.textContent = botMapLabel;
+  botMapCount.dataset.baseCount = botMapLabel;
   syncAudienceLegend();
   botMapView.classList.toggle("chrono-mode", !!sortByTime);
 
@@ -809,6 +854,23 @@ function applyDetailWidth() {
   workspace.style.setProperty("--detail-w", `${detailWidth}px`);
 }
 
+function applyCodebookWidth() {
+  const minCodebook = 360;
+  const maxCodebook = Math.max(minCodebook, window.innerWidth - 480);
+  codebookWidth = Math.min(maxCodebook, Math.max(minCodebook, codebookWidth));
+  workspace.style.setProperty("--codebook-w", `${codebookWidth}px`);
+}
+
+function setCodebookOpen(on) {
+  workspace.classList.toggle("codebook-open", on);
+  const pane = document.getElementById("codebookPane");
+  const handle = document.getElementById("codebookSplitHandle");
+  if (pane) pane.hidden = !on;
+  if (handle) handle.hidden = !on;
+  document.getElementById("codebookOpenBtn")?.classList.toggle("active", on);
+  applyCodebookWidth();
+}
+
 function updateLayoutMode() {
   const mapOn = groupByBot;
   workspace.classList.toggle("bot-map-mode", mapOn);
@@ -898,6 +960,38 @@ function wireSplitHandle() {
 
   window.addEventListener("resize", () => {
     if (!botMapView.hidden) applyDetailWidth();
+    if (workspace.classList.contains("codebook-open")) applyCodebookWidth();
+  });
+}
+
+function wireCodebookSplitHandle() {
+  const handle = document.getElementById("codebookSplitHandle");
+  if (!handle || handle.dataset.wired) return;
+  handle.dataset.wired = "1";
+
+  let startX = 0;
+  let startWidth = 0;
+
+  const onMove = (e) => {
+    const dx = startX - e.clientX;
+    codebookWidth = startWidth + dx;
+    applyCodebookWidth();
+  };
+
+  const onUp = () => {
+    workspace.classList.remove("resizing");
+    localStorage.setItem(CODEBOOK_WIDTH_KEY, String(codebookWidth));
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+  };
+
+  handle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startWidth = codebookWidth;
+    workspace.classList.add("resizing");
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   });
 }
 
@@ -1569,6 +1663,7 @@ searchInput.addEventListener("input", () => {
 });
 needsAttentionBtn.addEventListener("click", () => setNeedsAttention(!needsAttention));
 disagreedBtn?.addEventListener("click", () => setDisagreedOnly(!disagreedOnly));
+syncSheetBtn?.addEventListener("click", () => refreshSpreadsheet({ silent: false }));
 groupByBotBtn.addEventListener("click", () => setGroupByBot(!groupByBot));
 groupByUserBtn?.addEventListener("click", () => setGroupByUser(!groupByUser));
 sortByTimeBtn?.addEventListener("click", () => setSortByTime(!sortByTime));
@@ -1593,18 +1688,15 @@ if (botMapLegend) {
     wireCountSelect("userSelectWrap");
     wireCountSelect("codingSelectWrap");
     wireSplitHandle();
+    wireCodebookSplitHandle();
     wireControlsSplitHandle();
     wireColumnZoom();
     wireLabelerBox();
     applyDetailWidth();
+    applyCodebookWidth();
     applyFiltersPanelWidth(false);
     syncShortcutButtons();
-    if (listCount) listCount.textContent = "Refreshing spreadsheet…";
-    if (botMapCount) botMapCount.textContent = "Refreshing spreadsheet…";
-    if (itemList) itemList.innerHTML = `<div class="empty">Pulling latest Google Sheet…</div>`;
-    // Every page load re-fetches spreadsheet data (conversations + labels).
-    const refreshRes = await fetch("/api/refresh", { method: "POST" });
-    if (!refreshRes.ok) throw new Error("Failed to refresh spreadsheet");
+    if (itemList) itemList.innerHTML = `<div class="empty">Loading…</div>`;
     await loadBotLabels();
     await loadFilters();
     await loadList();
@@ -1613,6 +1705,11 @@ if (botMapLegend) {
       selectedId = deepLinkId;
       await loadDetail(deepLinkId);
     }
+    if (window.initCodebook) {
+      initCodebook("#codebookMount", { onToggle: setCodebookOpen, defaultOpen: true });
+    }
+    // Show cached data immediately; sync Google Sheet in the background.
+    refreshSpreadsheet({ silent: true });
   } catch (err) {
     itemList.innerHTML = `<div class="empty">Failed to load data: ${escapeHtml(err.message)}</div>`;
   }

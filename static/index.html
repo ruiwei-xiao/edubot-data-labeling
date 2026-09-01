@@ -92,6 +92,8 @@
             <button id="sortByTimeBtn" class="chip-btn" type="button" title="Within each bot, interleave conversations by time">Sort by time</button>
             <button id="needsAttentionBtn" class="chip-btn" type="button" title="Only flagged conversations">Needs attention</button>
             <button id="disagreedBtn" class="chip-btn" type="button" title="Only bots where the two coders disagree on a message">Disagreed</button>
+            <button id="syncSheetBtn" class="chip-btn" type="button" title="Pull latest data from Google Sheet">Sync sheet</button>
+            <span id="codebookMount"></span>
           </div>
         </section>
       </div>
@@ -144,9 +146,35 @@
           <p>Filter by teacher or app, then pick from the list.</p>
         </div>
       </main>
+
+      <div class="split-handle codebook-split-handle" id="codebookSplitHandle" hidden title="Drag to resize codebook"></div>
+
+      <aside class="codebook-panel" id="codebookPane" hidden aria-label="Codebook">
+        <header class="codebook-head">
+          <div>
+            <h2 id="codebookTitle">Codebook</h2>
+            <p class="codebook-sub">Edit either pane — changes sync and save automatically</p>
+          </div>
+          <div class="codebook-head-actions">
+            <div class="codebook-zoom" title="Text size (⌘/Ctrl + scroll in codebook)">
+              <button type="button" class="zoom-btn" id="codebookZoomOut" aria-label="Smaller text">−</button>
+              <span class="codebook-zoom-label" id="codebookZoomLabel">100%</span>
+              <button type="button" class="zoom-btn" id="codebookZoomIn" aria-label="Larger text">+</button>
+              <button type="button" class="zoom-fit" id="codebookZoomReset" title="Reset text size">Reset</button>
+            </div>
+            <span class="codebook-save-status" id="codebookSaveStatus"></span>
+            <button type="button" class="chip-btn" id="codebookCopyBtn" title="Copy full system prompt">Copy prompt</button>
+            <button type="button" class="codebook-close" id="codebookCloseBtn" aria-label="Close codebook">×</button>
+          </div>
+        </header>
+        <div class="codebook-body" id="codebookBody">
+          <div class="empty">Open codebook to load…</div>
+        </div>
+      </aside>
     </div>
   </div>
 
+  <script src="/codebook.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

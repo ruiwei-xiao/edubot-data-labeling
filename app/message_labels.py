@@ -282,28 +282,25 @@ def fetch_message_labels_from_sheet() -> dict[str, dict[str, Any]]:
 
 
 def ensure_sheet_labels_synced(force: bool = False) -> None:
-    """Merge Google Sheet labeling columns into in-memory labels (TTL-cached)."""
+    """Merge Google Sheet labeling columns into in-memory labels."""
     global _labels, _sheet_synced_at
     now = time.time()
-    if not force and _sheet_synced_at and (now - _sheet_synced_at) < SHEET_SYNC_TTL_SEC:
+    if not force:
+        # Normal reads use local JSON (+ optional sheet cache file). Network sync
+        # only runs on explicit refresh so page loads stay instant.
+        if SHEET_LABELS_CACHE_PATH.exists():
+            sheet_labels = _read_file(SHEET_LABELS_CACHE_PATH)
+            if sheet_labels:
+                _merge_label_stores(_labels, sheet_labels, sheet_wins_nonempty=True)
+        return
+
+    if _sheet_synced_at and (now - _sheet_synced_at) < SHEET_SYNC_TTL_SEC:
         return
 
     sheet_labels: dict[str, dict[str, Any]] = {}
     try:
-        cache_age = (
-            now - SHEET_LABELS_CACHE_PATH.stat().st_mtime
-            if SHEET_LABELS_CACHE_PATH.exists()
-            else None
-        )
-        if (
-            not force
-            and cache_age is not None
-            and cache_age < SHEET_SYNC_TTL_SEC
-        ):
-            sheet_labels = _read_file(SHEET_LABELS_CACHE_PATH)
-        else:
-            sheet_labels = fetch_message_labels_from_sheet()
-            _write_file(SHEET_LABELS_CACHE_PATH, sheet_labels)
+        sheet_labels = fetch_message_labels_from_sheet()
+        _write_file(SHEET_LABELS_CACHE_PATH, sheet_labels)
     except Exception:  # noqa: BLE001 - sheet sync is best-effort
         logger.exception("Failed to sync message labels from Google Sheet")
         if SHEET_LABELS_CACHE_PATH.exists():
