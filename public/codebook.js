@@ -1,6 +1,8 @@
 /** Codebook panel: spreadsheet-style Aspect / Code / Definition columns. */
 (function () {
   const SAVE_DELAY_MS = 700;
+  const TABLE_HEIGHT_KEY = "playlab_codebook_table_h";
+  const MIN_PANE_H = 120;
   const ASPECT_ORDER = ["user_message", "bot_message", "per_conversation", "per_bot"];
 
   let book = null;
@@ -517,14 +519,78 @@
     }
   }
 
+  function applyTableHeight(split, px) {
+    if (!split) return;
+    const handleH = 10;
+    const max = split.clientHeight - handleH - MIN_PANE_H;
+    if (max <= MIN_PANE_H) return;
+    const h = Math.min(max, Math.max(MIN_PANE_H, px));
+    split.style.setProperty("--codebook-table-h", `${h}px`);
+    return h;
+  }
+
+  function initInnerSplit(body) {
+    const split = body.querySelector(".codebook-split");
+    if (!split) return;
+    const saved = Number(localStorage.getItem(TABLE_HEIGHT_KEY));
+    if (saved > MIN_PANE_H) {
+      applyTableHeight(split, saved);
+    } else {
+      applyTableHeight(split, Math.max(MIN_PANE_H, split.clientHeight * 0.52));
+    }
+  }
+
+  function wireInnerSplit(body) {
+    const handle = body.querySelector("#codebookInnerSplitHandle");
+    const split = body.querySelector(".codebook-split");
+    if (!handle || !split) return;
+
+    initInnerSplit(body);
+    requestAnimationFrame(() => initInnerSplit(body));
+
+    let startY = 0;
+    let startH = 0;
+
+    const currentTableHeight = () => {
+      const raw = getComputedStyle(split).getPropertyValue("--codebook-table-h").trim();
+      const px = parseFloat(raw);
+      if (Number.isFinite(px) && px > 0) return px;
+      return split.querySelector(".codebook-pane-table")?.offsetHeight || 280;
+    };
+
+    const onMove = (e) => {
+      applyTableHeight(split, startH + (e.clientY - startY));
+    };
+
+    const onUp = () => {
+      const h = currentTableHeight();
+      localStorage.setItem(TABLE_HEIGHT_KEY, String(Math.round(h)));
+      split.classList.remove("resizing");
+      document.body.style.cursor = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+
+    handle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      startY = e.clientY;
+      startH = currentTableHeight();
+      split.classList.add("resizing");
+      document.body.style.cursor = "row-resize";
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    });
+  }
+
   function renderBody() {
     const body = document.getElementById("codebookBody");
     if (!body || !book) return;
-    body.innerHTML = `<div class="codebook-body-inner">${toolbarHtml()}<div class="codebook-split">${tableHtml()}${promptHtml()}</div></div>`;
+    body.innerHTML = `<div class="codebook-body-inner">${toolbarHtml()}<div class="codebook-split">${tableHtml()}<div class="codebook-inner-split-handle" id="codebookInnerSplitHandle" title="Drag to resize table / prompt"></div>${promptHtml()}</div></div>`;
     applyFontScale();
     syncBookToolbar();
     wirePaneInteractions(body);
     wireToolbar(body);
+    wireInnerSplit(body);
   }
 
   function wireToolbar(body) {
@@ -766,6 +832,13 @@
     document.addEventListener("mouseup", () => {
       pressKey = null;
       document.querySelectorAll(".codebook-pressed").forEach((el) => el.classList.remove("codebook-pressed"));
+    });
+    window.addEventListener("resize", () => {
+      if (!open) return;
+      const split = document.querySelector("#codebookBody .codebook-split");
+      if (!split) return;
+      const saved = Number(localStorage.getItem(TABLE_HEIGHT_KEY));
+      applyTableHeight(split, saved > MIN_PANE_H ? saved : split.clientHeight * 0.52);
     });
   }
 

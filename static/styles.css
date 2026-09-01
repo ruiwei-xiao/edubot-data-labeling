@@ -4229,8 +4229,6 @@ body.is-labeler #codingFilter {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  container-type: inline-size;
-  container-name: codebook-body;
 }
 
 .codebook-toolbar {
@@ -4287,18 +4285,40 @@ body.is-labeler #codingFilter {
 .codebook-split {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: minmax(220px, 1fr) minmax(220px, 1fr);
+  grid-template-rows: var(--codebook-table-h, 280px) 10px minmax(120px, 1fr);
   min-height: 0;
   flex: 1 1 auto;
   height: auto;
   --codebook-font-scale: 1;
 }
 
-@container codebook-body (min-width: 820px) {
-  .codebook-split {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    grid-template-rows: none;
-  }
+.codebook-inner-split-handle {
+  height: 10px;
+  cursor: row-resize;
+  position: relative;
+  background: #f8fafc;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  z-index: 2;
+}
+
+.codebook-inner-split-handle::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 2px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.12s, height 0.12s;
+}
+
+.codebook-inner-split-handle:hover::before,
+.codebook-split.resizing .codebook-inner-split-handle::before {
+  background: #3b82f6;
+  height: 3px;
 }
 
 .codebook-pane {
@@ -4307,12 +4327,16 @@ body.is-labeler #codingFilter {
   min-height: 0;
   min-width: 0;
   height: 100%;
-  border-right: 1px solid var(--border);
+  border-right: none;
   overflow: hidden;
 }
 
-.codebook-pane:last-child {
-  border-right: none;
+.codebook-pane-table {
+  border-bottom: none;
+}
+
+.codebook-pane-prompt {
+  border-top: none;
 }
 
 .codebook-pane-head {
@@ -4439,22 +4463,6 @@ tr[data-code-key].codebook-pressed,
 .codebook-prompt-section.codebook-linked,
 .codebook-prompt-section.codebook-pressed {
   border-color: #60a5fa;
-}
-
-@media (max-width: 1100px) {
-  .codebook-split {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(220px, 1fr) minmax(220px, 1fr);
-  }
-
-  .codebook-pane {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .codebook-pane:last-child {
-    border-bottom: none;
-  }
 }
 
 .codebook-table {
