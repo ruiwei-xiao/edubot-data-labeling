@@ -445,12 +445,12 @@
             </colgroup>
             <thead>
               <tr>
-                <th>Aspect</th>
-                <th>Code</th>
-                <th>Definition</th>
-                <th>Secondary Code</th>
-                <th>Example (code it)</th>
-                <th>Boundary rule (do not code it)</th>
+                <th title="Aspect">Aspect</th>
+                <th title="Code">Code</th>
+                <th title="Definition">Definition</th>
+                <th title="Secondary Code">Secondary</th>
+                <th title="Example (code it)">Example</th>
+                <th title="Boundary rule (do not code it)">Boundary</th>
               </tr>
             </thead>
             <tbody>${tableRowsHtml()}</tbody>
