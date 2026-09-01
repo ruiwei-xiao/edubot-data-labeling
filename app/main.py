@@ -171,7 +171,10 @@ async def codebook_js():
 
 @app.get("/api/codebook")
 async def codebook():
-    return get_codebook()
+    try:
+        return get_codebook()
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
 
 
 @app.put("/api/codebook")

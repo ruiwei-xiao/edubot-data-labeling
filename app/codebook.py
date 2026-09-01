@@ -510,7 +510,41 @@ def _load_store() -> dict[str, Any]:
     store = _migrate_legacy(best)
     if best.get("updated_at"):
         store["updated_at"] = best["updated_at"]
-    return store
+    return _guard_corrupted_store(store)
+
+
+def _guard_corrupted_store(store: dict[str, Any]) -> dict[str, Any]:
+    """Recover if a bad sheet pull stored conversation rows as codebook entries."""
+    max_entries = 200
+
+    def _is_corrupted(book: dict[str, Any]) -> bool:
+        return len(book.get("entries") or []) > max_entries
+
+    if not any(_is_corrupted(b) for b in store.get("codebooks") or []):
+        return store
+
+    bundled = _read_store_file(CODEBOOKS_PATH)
+    if bundled.get("codebooks") and not any(
+        _is_corrupted(b) for b in bundled.get("codebooks") or []
+    ):
+        fallback = _migrate_legacy(bundled)
+        if bundled.get("updated_at"):
+            fallback["updated_at"] = bundled["updated_at"]
+        return fallback
+
+    books: list[dict[str, Any]] = []
+    for book in store.get("codebooks") or []:
+        if _is_corrupted(book):
+            if book.get("id") == "default":
+                books.append(_default_book())
+            continue
+        books.append(book)
+    if not books:
+        books = [_default_book()]
+    active = store.get("active_id") or "default"
+    if not any(b.get("id") == active for b in books):
+        active = books[0]["id"]
+    return {"active_id": active, "codebooks": books}
 
 
 def _save_store(store: dict[str, Any]) -> None:
@@ -554,7 +588,12 @@ def apply_sheet_entries_to_store(store: dict[str, Any], entries: list[dict[str, 
 def sync_codebook_from_sheet(*, save: bool = True) -> dict[str, Any]:
     from app.codebook_loader import fetch_and_cache_codebook, sheet_book_id
 
-    payload = fetch_and_cache_codebook()
+    try:
+        payload = fetch_and_cache_codebook()
+    except (ValueError, RuntimeError) as err:
+        result = get_codebook()
+        result["sheet_sync"] = {"ok": False, "skipped": True, "reason": str(err)}
+        return result
     entries = payload.get("entries") or []
     if not entries:
         result = get_codebook()

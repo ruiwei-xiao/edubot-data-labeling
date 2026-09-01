@@ -123,6 +123,34 @@ def _split_examples(text: str) -> list[str]:
     return parts or [raw]
 
 
+CONVERSATION_HEADER_MARKERS = {
+    "conv_id",
+    "message_number",
+    "message_content",
+    "message_content (trimmed)",
+    "ruiwei_labeling",
+    "jiayi_labeling",
+    "system_prompt",
+}
+
+
+def is_codebook_csv_header(header: list[str]) -> bool:
+    norms = {_norm_header(h) for h in header}
+    if norms & CONVERSATION_HEADER_MARKERS:
+        return False
+    has_code = "code" in norms
+    has_definition = "definition" in norms
+    return has_code and has_definition
+
+
+def parse_codebook_csv_header(text: str) -> list[str]:
+    reader = csv.reader(io.StringIO(text or ""))
+    try:
+        return next(reader)
+    except StopIteration:
+        return []
+
+
 def build_entries_from_csv_text(text: str) -> list[dict[str, Any]]:
     from app.codebook import _normalize_entry, _slug
 
@@ -130,6 +158,9 @@ def build_entries_from_csv_text(text: str) -> list[dict[str, Any]]:
     try:
         header = next(reader)
     except StopIteration:
+        return []
+
+    if not is_codebook_csv_header(header):
         return []
 
     col = _header_map(header)
@@ -257,6 +288,14 @@ def load_codebook_sheet_cache() -> dict[str, Any]:
 
 def fetch_and_cache_codebook() -> dict[str, Any]:
     text = fetch_codebook_csv()
+    header = parse_codebook_csv_header(text)
+    if not is_codebook_csv_header(header):
+        tab = sheet_tab()
+        preview = ", ".join(header[:4]) if header else "(empty)"
+        raise ValueError(
+            f"Tab '{tab}' is missing or not a codebook sheet (found columns: {preview}). "
+            "Create a 'codebook' tab or save once from the UI to create it."
+        )
     entries = build_entries_from_csv_text(text)
     payload = build_sheet_cache_payload(entries)
     save_codebook_sheet_cache(payload)
