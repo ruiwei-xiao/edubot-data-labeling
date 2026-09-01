@@ -49,6 +49,14 @@ def message_key(conv_id: str, message_number: Union[str, int]) -> str:
 
 def codes_for_role(role: str) -> list[str]:
     role_l = (role or "").strip().lower()
+    try:
+        from app.codebook import active_codes_for_role
+
+        codes = active_codes_for_role(role_l)
+        if codes:
+            return codes
+    except Exception:  # noqa: BLE001
+        pass
     if role_l in {"bot", "assistant"}:
         return list(BOT_MESSAGE_CODES)
     if role_l == "user":
@@ -58,16 +66,24 @@ def codes_for_role(role: str) -> list[str]:
 
 def extras_for_role(role: str) -> list[str]:
     role_l = (role or "").strip().lower()
-    if role_l == "user":
-        return list(USER_EXTRA_FLAGS)
-    return []
+    if role_l != "user":
+        return []
+    try:
+        from app.codebook import active_user_flags
+
+        flags = active_user_flags()
+        if flags:
+            return flags
+    except Exception:  # noqa: BLE001
+        pass
+    return list(USER_EXTRA_FLAGS)
 
 
 def _normalize_code(code: str) -> str:
     return (code or "").strip().lower()
 
 
-def _pick_code(code: str = "", codes: Any = None) -> str:
+def _pick_code(code: str = "", codes: Any = None, allowed: Optional[set[str]] = None) -> str:
     candidates: list[str] = []
     if isinstance(codes, list):
         candidates.extend(str(v) for v in codes)
@@ -75,10 +91,19 @@ def _pick_code(code: str = "", codes: Any = None) -> str:
         candidates.append(codes)
     if code:
         candidates.insert(0, code)
+    allow = allowed if allowed is not None else set(_ALL_CODES)
     for value in candidates:
         normalized = _normalize_code(value)
-        if normalized in _ALL_CODES:
+        if not normalized:
+            continue
+        if normalized == "iterative":
+            continue
+        if normalized in allow or not allow:
             return normalized
+        # Also accept original casing match for non-lower codes
+        raw = str(value).strip()
+        if raw in allow:
+            return raw
     return ""
 
 
@@ -578,8 +603,10 @@ def set_message_label(
 
     role_l = (role or "").strip().lower()
     allowed = set(codes_for_role(role_l) if role_l else list(_ALL_CODES))
+    # Always accept legacy hardcoded codes so old labels remain editable.
+    allowed |= set(_ALL_CODES)
 
-    selected = _pick_code(code, codes)
+    selected = _pick_code(code, codes, allowed=allowed)
     rationale_norm = (rationale or "").strip()
     iterative_on = bool(iterative) and role_l == "user"
 

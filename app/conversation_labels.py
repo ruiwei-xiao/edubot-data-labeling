@@ -1,3 +1,5 @@
+"""Per-conversation labels driven by the active codebook."""
+
 from __future__ import annotations
 
 import json
@@ -6,17 +8,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
-LABELS_PATH = ROOT / "data" / "bot_labels.json"
-TMP_LABELS_PATH = Path("/tmp/playlab_bot_labels.json")
+LABELS_PATH = ROOT / "data" / "conversation_labels.json"
+TMP_LABELS_PATH = Path("/tmp/playlab_conversation_labels.json")
 
 ALLOWED_EDITORS = {"ruiwei", "jiayi"}
-
-BOT_LABEL_CODES = [
-    "Iterative refinement",
-    "Limited evaluation",
-    "Opportunistic exploration",
-    "No testing",
-]
 
 _labels: dict[str, dict[str, Any]] = {}
 _loaded = False
@@ -34,16 +29,10 @@ def can_edit(editor: str) -> bool:
     return _normalize_editor(editor) in ALLOWED_EDITORS
 
 
-def _allowed_bot_codes() -> list[str]:
-    try:
-        from app.codebook import active_per_bot_codes
+def _allowed_codes() -> list[str]:
+    from app.codebook import active_conversation_codes
 
-        codes = active_per_bot_codes()
-        if codes:
-            return codes
-    except Exception:  # noqa: BLE001
-        pass
-    return list(BOT_LABEL_CODES)
+    return active_conversation_codes()
 
 
 def _read_file(path: Path) -> dict[str, dict[str, Any]]:
@@ -56,22 +45,14 @@ def _read_file(path: Path) -> dict[str, dict[str, Any]]:
     labels = data.get("labels", data) if isinstance(data, dict) else {}
     if not isinstance(labels, dict):
         return {}
-    allowed = set(_allowed_bot_codes()) | set(BOT_LABEL_CODES)
     out: dict[str, dict[str, Any]] = {}
-    for bot, row in labels.items():
-        if not isinstance(bot, str) or not bot.strip():
-            continue
-        if isinstance(row, str):
-            code = row.strip()
-            if code and code in allowed:
-                out[bot] = {"code": code, "updated_by": "", "updated_at": ""}
+    for cid, row in labels.items():
+        if not isinstance(cid, str) or not cid.strip():
             continue
         if not isinstance(row, dict):
             continue
         code = (row.get("code") or "").strip()
-        if code and code not in allowed:
-            continue
-        out[bot] = {
+        out[cid] = {
             "code": code,
             "updated_by": (row.get("updated_by") or "").strip(),
             "updated_at": (row.get("updated_at") or "").strip(),
@@ -81,7 +62,7 @@ def _read_file(path: Path) -> dict[str, dict[str, Any]]:
 
 def _write_file(path: Path, labels: dict[str, dict[str, Any]]) -> bool:
     payload = {
-        "codes": _allowed_bot_codes(),
+        "codes": _allowed_codes(),
         "labels": labels,
         "updated_at": _now_iso(),
     }
@@ -93,66 +74,60 @@ def _write_file(path: Path, labels: dict[str, dict[str, Any]]) -> bool:
         return False
 
 
-def load_labels(force: bool = False) -> dict[str, dict[str, Any]]:
+def load_conversation_labels(force: bool = False) -> dict[str, dict[str, Any]]:
     global _labels, _loaded
     if _loaded and not force:
         return _labels
     merged: dict[str, dict[str, Any]] = {}
     for path in (LABELS_PATH, TMP_LABELS_PATH):
-        for bot, row in _read_file(path).items():
-            prev = merged.get(bot)
+        for cid, row in _read_file(path).items():
+            prev = merged.get(cid)
             if not prev or (row.get("updated_at") or "") >= (prev.get("updated_at") or ""):
-                merged[bot] = row
+                merged[cid] = row
     _labels = merged
     _loaded = True
     return _labels
 
 
-def save_labels() -> None:
-    # Prefer repo path locally; always try /tmp for Vercel warm instances.
+def save_conversation_labels() -> None:
     _write_file(LABELS_PATH, _labels)
     _write_file(TMP_LABELS_PATH, _labels)
 
 
-def list_labels() -> dict[str, Any]:
-    labels = load_labels()
+def list_conversation_labels() -> dict[str, Any]:
+    labels = load_conversation_labels()
     return {
-        "codes": _allowed_bot_codes(),
+        "codes": _allowed_codes(),
         "editors": sorted(ALLOWED_EDITORS),
         "labels": labels,
         "count": len(labels),
     }
 
 
-def set_bot_label(bot_title: str, code: str, editor: str) -> dict[str, Any]:
-    bot = (bot_title or "").strip()
-    if not bot:
-        raise ValueError("bot_title is required")
-
+def set_conversation_label(conv_id: str, code: str, editor: str) -> dict[str, Any]:
+    cid = (conv_id or "").strip()
+    if not cid:
+        raise ValueError("conv_id is required")
     editor_norm = _normalize_editor(editor)
     if editor_norm not in ALLOWED_EDITORS:
-        raise PermissionError("Only ruiwei or jiayi can edit bot labels")
+        raise PermissionError("Only ruiwei or jiayi can edit conversation labels")
 
     code = (code or "").strip()
-    allowed = set(_allowed_bot_codes()) | set(BOT_LABEL_CODES)
-    if code and code not in allowed:
-        raise ValueError(f"Invalid code. Allowed: {', '.join(sorted(allowed))}")
+    allowed = _allowed_codes()
+    if code and allowed and code not in allowed:
+        raise ValueError(f"Invalid code. Allowed: {', '.join(allowed)}")
 
-    load_labels()
+    load_conversation_labels()
     if not code:
-        _labels.pop(bot, None)
-        save_labels()
-        return {"bot_title": bot, "code": "", "updated_by": editor_norm, "updated_at": _now_iso()}
+        _labels.pop(cid, None)
+        save_conversation_labels()
+        return {"conv_id": cid, "code": "", "updated_by": editor_norm, "updated_at": _now_iso()}
 
-    row = {
-        "code": code,
-        "updated_by": editor_norm,
-        "updated_at": _now_iso(),
-    }
-    _labels[bot] = row
-    save_labels()
-    return {"bot_title": bot, **row}
+    row = {"code": code, "updated_by": editor_norm, "updated_at": _now_iso()}
+    _labels[cid] = row
+    save_conversation_labels()
+    return {"conv_id": cid, **row}
 
 
-def get_bot_label(bot_title: str) -> Optional[dict[str, Any]]:
-    return load_labels().get((bot_title or "").strip())
+def get_conversation_label(conv_id: str) -> Optional[dict[str, Any]]:
+    return load_conversation_labels().get((conv_id or "").strip())

@@ -18,9 +18,12 @@ let botLabelCodes = [
 ];
 let botLabels = {}; // bot_title -> { code, updated_by, updated_at }
 let messageLabels = {}; // `${convId}:${msgNum}` -> { codes, role, ... }
+let conversationLabels = {}; // conv_id -> { code, ... }
+let conversationCodes = [];
 let currentLabelableMsgIds = []; // message_number strings for open conversation
-const BOT_MSG_CODES = ["success", "fail", "others"];
-const USER_MSG_CODES = ["desired", "adversarial", "others"];
+let BOT_MSG_CODES = ["success", "fail", "others"];
+let USER_MSG_CODES = ["desired", "adversarial", "others"];
+let USER_MSG_FLAGS = ["iterative"];
 const ALLOWED_LABELERS = new Set(["ruiwei", "jiayi"]);
 const LABELER_KEY = "playlab_labeler_name";
 const LABELS_LOCAL_KEY = "playlab_bot_labels_cache";
@@ -275,10 +278,14 @@ function updateListCountLabel() {
   if (!listCount) return;
   const n = items.length;
   const bots = new Set(items.map((i) => i.title)).size;
-  const base = groupByBot ? `${bots} bots · ${n} conversations` : `${n} conversations`;
+  const msgs = items.reduce((sum, i) => sum + (Number(i.message_count) || 0), 0);
+  const msgPart = `${msgs} message${msgs === 1 ? "" : "s"}`;
+  const base = groupByBot
+    ? `${bots} bots · ${n} conversations · ${msgPart}`
+    : `${n} conversations · ${msgPart}`;
   listCount.dataset.baseCount = base;
   listCount.textContent = base;
-  if (botMapCount) botMapCount.dataset.baseCount = `${bots} bots · ${n} conversations`;
+  if (botMapCount) botMapCount.dataset.baseCount = base;
 }
 
 async function refreshCascadingFilters() {
@@ -660,7 +667,8 @@ function renderBotMap() {
     return diff !== 0 ? diff : a.localeCompare(b);
   });
 
-  const botMapLabel = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${visibleItems.length} conversations`;
+  const msgTotal = visibleItems.reduce((sum, i) => sum + (Number(i.message_count) || 0), 0);
+  const botMapLabel = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${visibleItems.length} conversations · ${msgTotal} message${msgTotal === 1 ? "" : "s"}`;
   botMapCount.textContent = botMapLabel;
   botMapCount.dataset.baseCount = botMapLabel;
   syncAudienceLegend();
@@ -1122,6 +1130,35 @@ function messageCodesForRole(role) {
   return [];
 }
 
+function messageFlagsForRole(role) {
+  return (role || "").toLowerCase() === "user" ? USER_MSG_FLAGS : [];
+}
+
+function applyCodebookConfig(data) {
+  const active = data?.active || data || {};
+  if (Array.isArray(active.user_codes) && active.user_codes.length) {
+    USER_MSG_CODES = active.user_codes.slice();
+  }
+  if (Array.isArray(active.bot_codes) && active.bot_codes.length) {
+    BOT_MSG_CODES = active.bot_codes.slice();
+  }
+  if (Array.isArray(active.user_flags)) {
+    USER_MSG_FLAGS = active.user_flags.slice();
+  }
+  if (Array.isArray(active.per_bot_codes) && active.per_bot_codes.length) {
+    botLabelCodes = active.per_bot_codes.slice();
+  }
+  if (Array.isArray(active.conversation_codes)) {
+    conversationCodes = active.conversation_codes.slice();
+  }
+}
+
+async function loadCodebookConfig() {
+  const res = await fetch("/api/codebook");
+  if (!res.ok) return;
+  applyCodebookConfig(await res.json());
+}
+
 function normalizeMsgCode(code) {
   return String(code || "")
     .trim()
@@ -1201,7 +1238,7 @@ function messageLabelControlsHtml(convId, m) {
   const savedRationale = messageLabelRationale(row);
   const savedIterative = messageLabelIterative(row);
   const editable = canEditBotLabels();
-  const showIterative = role === "user";
+  const flags = messageFlagsForRole(role);
 
   const opts = codes
     .map((c) => {
@@ -1216,16 +1253,19 @@ function messageLabelControlsHtml(convId, m) {
     })
     .join("");
 
-  const iterativeBtn = showIterative
-    ? `<button
+  const iterativeBtn = flags
+    .map((flag) => {
+      const on = flag === "iterative" ? savedIterative : false;
+      return `<button
         type="button"
-        class="msg-label-extra ${savedIterative ? "active" : ""}"
-        data-flag="iterative"
-        aria-pressed="${savedIterative ? "true" : "false"}"
-        title="Asked before in this conversation"
+        class="msg-label-extra ${on ? "active" : ""}"
+        data-flag="${escapeHtml(flag)}"
+        aria-pressed="${on ? "true" : "false"}"
+        title="${escapeHtml(flag)}"
         ${editable ? "" : "disabled"}
-      >iterative</button>`
-    : "";
+      >${escapeHtml(flag)}</button>`;
+    })
+    .join("");
 
   return `
     <div
@@ -1434,6 +1474,27 @@ function renderConversationDetail(c) {
     .filter((m) => messageCodesForRole(m.role).length)
     .map((m) => String(m.message_number));
 
+  if (Array.isArray(c.conversation_codes)) conversationCodes = c.conversation_codes.slice();
+  const convLabelCode = (c.conversation_label && c.conversation_label.code) || "";
+  if (c.conversation_label) conversationLabels[convId] = c.conversation_label;
+
+  const convLabelHtml =
+    conversationCodes.length && canEditBotLabels()
+      ? `<label class="conv-level-label">Conv code
+          <select id="convLabelSelect" data-conv="${escapeHtml(String(convId))}">
+            <option value="">Select…</option>
+            ${conversationCodes
+              .map(
+                (code) =>
+                  `<option value="${escapeHtml(code)}" ${
+                    code === convLabelCode ? "selected" : ""
+                  }>${escapeHtml(code)}</option>`
+              )
+              .join("")}
+          </select>
+        </label>`
+      : "";
+
   const disagreedIds = new Set((c.disagreed_messages || []).map(String));
   const disagreementDetails = c.disagreement_details || {};
 
@@ -1469,6 +1530,7 @@ function renderConversationDetail(c) {
         }</div>
       </div>
       <div class="detail-actions">
+        ${convLabelHtml}
         ${c.url ? `<a href="${escapeHtml(c.url)}" target="_blank" rel="noopener">Open in Playlab</a>` : ""}
         <button type="button" id="copyPromptBtn">Copy prompt</button>
       </div>
@@ -1514,7 +1576,32 @@ function renderConversationDetail(c) {
   wirePromptActions(c.system_prompt || "");
   wireMessageRoleFilter();
   wireMessageLabelControls();
+  wireConversationLabelControl(convId);
   syncConversationCodedFlag(convId);
+}
+
+function wireConversationLabelControl(convId) {
+  const select = document.getElementById("convLabelSelect");
+  if (!select) return;
+  select.addEventListener("change", async () => {
+    if (!canEditBotLabels()) {
+      alert("Only ruiwei or jiayi can edit conversation labels.");
+      return;
+    }
+    const code = select.value;
+    const res = await fetch(`/api/conversation-labels/${encodeURIComponent(convId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, editor: labelerName() }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.detail || "Failed to save conversation label");
+      return;
+    }
+    const row = await res.json();
+    conversationLabels[convId] = row;
+  });
 }
 
 function wireMessageRoleFilter() {
@@ -1713,6 +1800,7 @@ if (botMapLegend) {
     applyFiltersPanelWidth(false);
     syncShortcutButtons();
     if (itemList) itemList.innerHTML = `<div class="empty">Loading…</div>`;
+    await loadCodebookConfig();
     await loadBotLabels();
     await loadFilters();
     await loadList();
@@ -1724,6 +1812,11 @@ if (botMapLegend) {
     if (window.initCodebook) {
       initCodebook("#codebookMount", { onToggle: setCodebookOpen, defaultOpen: true });
     }
+    window.addEventListener("codebook-changed", (e) => {
+      applyCodebookConfig(e.detail || {});
+      if (groupByBot) renderBotMap();
+      if (selectedId) loadDetail(selectedId);
+    });
     // Show cached data immediately; sync Google Sheet in the background.
     refreshSpreadsheet({ silent: true });
   } catch (err) {

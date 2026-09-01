@@ -10,7 +10,18 @@ from pathlib import Path
 from app.bot_labels import list_labels, load_labels, set_bot_label
 from app.message_labels import list_message_labels, load_message_labels, set_message_label
 from app.cost_analysis import compute_cost_analysis
-from app.codebook import get_codebook, save_codebook
+from app.codebook import (
+    create_codebook,
+    delete_codebook,
+    get_codebook,
+    save_active_codebook,
+    set_active_codebook,
+)
+from app.conversation_labels import (
+    list_conversation_labels,
+    load_conversation_labels,
+    set_conversation_label,
+)
 from app.label_analysis import compute_label_analysis
 from app.conversations_loader import (
     conversation_list_item,
@@ -52,7 +63,9 @@ class MessageLabelUpdate(BaseModel):
 
 
 class CodebookEntryUpdate(BaseModel):
-    role: str
+    id: str = Field(default="")
+    fields: list[str] = Field(default_factory=list)
+    role: str = Field(default="")  # legacy
     code: str
     label: str = Field(default="")
     description: str = Field(default="")
@@ -62,9 +75,24 @@ class CodebookEntryUpdate(BaseModel):
 
 
 class CodebookUpdate(BaseModel):
+    name: str = Field(default="")
     entries: list[CodebookEntryUpdate] = Field(default_factory=list)
     preamble: str = Field(default="")
     footer: str = Field(default="")
+
+
+class CodebookCreate(BaseModel):
+    name: str = Field(default="")
+    copy_active: bool = Field(default=False)
+
+
+class CodebookActivate(BaseModel):
+    id: str
+
+
+class ConversationLabelUpdate(BaseModel):
+    code: str = Field(default="")
+    editor: str = Field(default="")
 
 
 @app.on_event("startup")
@@ -74,6 +102,8 @@ def warmup():
     load_conversations()
     load_labels()
     load_message_labels()
+    load_conversation_labels()
+    get_codebook()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -143,7 +173,43 @@ async def codebook():
 
 @app.put("/api/codebook")
 async def put_codebook(body: CodebookUpdate):
-    return save_codebook(body.model_dump())
+    return save_active_codebook(body.model_dump())
+
+
+@app.post("/api/codebook")
+async def post_codebook(body: CodebookCreate):
+    return create_codebook(body.name, copy_active=body.copy_active)
+
+
+@app.post("/api/codebook/activate")
+async def activate_codebook(body: CodebookActivate):
+    try:
+        return set_active_codebook(body.id)
+    except ValueError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
+
+
+@app.delete("/api/codebook/{book_id}")
+async def remove_codebook(book_id: str):
+    try:
+        return delete_codebook(book_id)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+
+@app.get("/api/conversation-labels")
+async def get_conversation_labels():
+    return list_conversation_labels()
+
+
+@app.put("/api/conversation-labels/{conv_id}")
+async def put_conversation_label(conv_id: str, body: ConversationLabelUpdate):
+    try:
+        return set_conversation_label(conv_id, body.code, body.editor)
+    except PermissionError as err:
+        raise HTTPException(status_code=403, detail=str(err)) from err
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
 
 
 @app.get("/api/filters")
@@ -304,6 +370,11 @@ async def conversation_detail(
     details = disagreement_details(conv_id)
     payload["disagreed_messages"] = sorted(details, key=lambda m: int(m) if m.isdigit() else 0)
     payload["disagreement_details"] = details
+    from app.conversation_labels import get_conversation_label as _get_conv_label
+    from app.codebook import active_conversation_codes
+
+    payload["conversation_label"] = _get_conv_label(conv_id)
+    payload["conversation_codes"] = active_conversation_codes()
     return payload
 
 
