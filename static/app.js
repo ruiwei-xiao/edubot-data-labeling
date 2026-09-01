@@ -65,8 +65,19 @@ const DETAIL_WIDTH_KEY = "playlab_detail_width";
 const CODEBOOK_WIDTH_KEY = "playlab_codebook_width";
 const FILTERS_PANEL_W_KEY = "playlab_filters_panel_w";
 const COL_WIDTH_KEY = "playlab_bot_col_width";
-let detailWidth = Number(localStorage.getItem(DETAIL_WIDTH_KEY)) || 420;
-let codebookWidth = Number(localStorage.getItem(CODEBOOK_WIDTH_KEY)) || 520;
+
+function defaultColumnWidths() {
+  // Initial 4:3:3 across map | conversation | codebook (handles ≈ 20px).
+  const usable = Math.max(900, (workspace?.clientWidth || window.innerWidth) - 20);
+  return {
+    detail: Math.round(usable * 0.3),
+    codebook: Math.round(usable * 0.3),
+  };
+}
+
+const _defaultCols = defaultColumnWidths();
+let detailWidth = Number(localStorage.getItem(DETAIL_WIDTH_KEY)) || _defaultCols.detail;
+let codebookWidth = Number(localStorage.getItem(CODEBOOK_WIDTH_KEY)) || _defaultCols.codebook;
 let filtersPanelWidthPct = Number(localStorage.getItem(FILTERS_PANEL_W_KEY)) || 58;
 let botColWidth = Number(localStorage.getItem(COL_WIDTH_KEY)) || 280;
 const COL_W_MIN = 12;
@@ -848,15 +859,18 @@ function wireColumnZoom() {
 }
 
 function applyDetailWidth() {
-  const minDetail = 280;
-  const maxDetail = Math.max(minDetail, window.innerWidth - 320);
+  const minDetail = 240;
+  const codebookOpen = workspace.classList.contains("codebook-open");
+  const reserved = codebookOpen ? codebookWidth + 10 + 280 : 320;
+  const maxDetail = Math.max(minDetail, window.innerWidth - reserved);
   detailWidth = Math.min(maxDetail, Math.max(minDetail, detailWidth));
   workspace.style.setProperty("--detail-w", `${detailWidth}px`);
 }
 
 function applyCodebookWidth() {
-  const minCodebook = 360;
-  const maxCodebook = Math.max(minCodebook, window.innerWidth - 480);
+  const minCodebook = 280;
+  const reserved = detailWidth + 10 + 280;
+  const maxCodebook = Math.max(minCodebook, window.innerWidth - reserved);
   codebookWidth = Math.min(maxCodebook, Math.max(minCodebook, codebookWidth));
   workspace.style.setProperty("--codebook-w", `${codebookWidth}px`);
 }
@@ -868,6 +882,7 @@ function setCodebookOpen(on) {
   if (pane) pane.hidden = !on;
   if (handle) handle.hidden = !on;
   document.getElementById("codebookOpenBtn")?.classList.toggle("active", on);
+  applyDetailWidth();
   applyCodebookWidth();
 }
 
@@ -880,10 +895,9 @@ function updateLayoutMode() {
   if (document.getElementById("sidebar")) {
     document.getElementById("sidebar").hidden = mapOn;
   }
-  if (mapOn) {
-    applyDetailWidth();
-    applyBotColWidth(false);
-  }
+  applyDetailWidth();
+  if (workspace.classList.contains("codebook-open")) applyCodebookWidth();
+  if (mapOn) applyBotColWidth(false);
 }
 
 function applyFiltersPanelWidth(persist = true) {
@@ -939,6 +953,7 @@ function wireSplitHandle() {
     const dx = startX - e.clientX;
     detailWidth = startWidth + dx;
     applyDetailWidth();
+    if (workspace.classList.contains("codebook-open")) applyCodebookWidth();
   };
 
   const onUp = () => {
@@ -976,6 +991,7 @@ function wireCodebookSplitHandle() {
     const dx = startX - e.clientX;
     codebookWidth = startWidth + dx;
     applyCodebookWidth();
+    applyDetailWidth();
   };
 
   const onUp = () => {

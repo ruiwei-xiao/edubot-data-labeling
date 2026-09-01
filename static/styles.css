@@ -477,7 +477,7 @@ body.is-labeler #codingFilter {
 }
 
 .workspace.codebook-open {
-  grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) 10px minmax(0, 3fr);
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 10px minmax(280px, var(--codebook-w, 30%));
 }
 
 .workspace.bot-map-mode {
@@ -485,7 +485,12 @@ body.is-labeler #codingFilter {
 }
 
 .workspace.bot-map-mode.codebook-open {
-  grid-template-columns: minmax(0, 4fr) 10px minmax(0, 3fr) 10px minmax(0, 3fr);
+  grid-template-columns:
+    minmax(0, 1fr)
+    10px
+    minmax(240px, var(--detail-w, 30%))
+    10px
+    minmax(280px, var(--codebook-w, 30%));
 }
 
 .workspace.bot-map-mode .sidebar {
