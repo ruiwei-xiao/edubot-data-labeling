@@ -278,8 +278,13 @@ function updateListCountLabel() {
   if (!listCount) return;
   const n = items.length;
   const bots = new Set(items.map((i) => i.title)).size;
-  const msgs = items.reduce((sum, i) => sum + (Number(i.message_count) || 0), 0);
-  const msgPart = `${msgs} message${msgs === 1 ? "" : "s"}`;
+  const msgs = items.reduce((sum, i) => {
+    if (disagreedOnly) return sum + (Number(i.disagreed_count) || 0);
+    return sum + (Number(i.message_count) || 0);
+  }, 0);
+  const msgPart = disagreedOnly
+    ? `${msgs} disagreed message${msgs === 1 ? "" : "s"}`
+    : `${msgs} message${msgs === 1 ? "" : "s"}`;
   const base = groupByBot
     ? `${bots} bots · ${n} conversations · ${msgPart}`
     : `${n} conversations · ${msgPart}`;
@@ -667,8 +672,14 @@ function renderBotMap() {
     return diff !== 0 ? diff : a.localeCompare(b);
   });
 
-  const msgTotal = visibleItems.reduce((sum, i) => sum + (Number(i.message_count) || 0), 0);
-  const botMapLabel = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${visibleItems.length} conversations · ${msgTotal} message${msgTotal === 1 ? "" : "s"}`;
+  const msgTotal = visibleItems.reduce((sum, i) => {
+    if (disagreedOnly) return sum + (Number(i.disagreed_count) || 0);
+    return sum + (Number(i.message_count) || 0);
+  }, 0);
+  const msgPart = disagreedOnly
+    ? `${msgTotal} disagreed message${msgTotal === 1 ? "" : "s"}`
+    : `${msgTotal} message${msgTotal === 1 ? "" : "s"}`;
+  const botMapLabel = `${sortedKeys.length} bot${sortedKeys.length === 1 ? "" : "s"} · ${visibleItems.length} conversations · ${msgPart}`;
   botMapCount.textContent = botMapLabel;
   botMapCount.dataset.baseCount = botMapLabel;
   syncAudienceLegend();
