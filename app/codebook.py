@@ -218,6 +218,17 @@ def _normalize_fields(raw: Any, role: str = "") -> list[str]:
     return mapped or [FIELD_USER]
 
 
+def _normalize_aspect(raw: dict[str, Any], fields: list[str]) -> str:
+    explicit = str(raw.get("aspect") or "").strip()
+    if explicit:
+        normalized = _normalize_fields([explicit])
+        if normalized:
+            return normalized[0]
+    if fields:
+        return fields[0]
+    return FIELD_USER
+
+
 def _normalize_entry(raw: dict[str, Any]) -> dict[str, Any]:
     examples = raw.get("examples") or []
     if isinstance(examples, str):
@@ -225,18 +236,24 @@ def _normalize_entry(raw: dict[str, Any]) -> dict[str, Any]:
     code = str(raw.get("code") or "").strip()
     # Keep original casing for bot-level codes; lowercase message-style codes that look like tokens.
     fields = _normalize_fields(raw.get("fields"), role=str(raw.get("role") or ""))
+    aspect = _normalize_aspect(raw, fields)
+    fields = [aspect]
     if fields and set(fields) <= {FIELD_USER, FIELD_BOT, FIELD_CONV} and code == code.lower():
         code_norm = code.lower()
     else:
         code_norm = code
+    boundary_rule = str(raw.get("boundary_rule") or raw.get("not_this") or "").strip()
     entry = {
         "id": str(raw.get("id") or "").strip() or str(uuid.uuid4())[:8],
+        "aspect": aspect,
         "fields": fields,
         "code": code_norm,
         "label": str(raw.get("label") or code_norm).strip(),
         "description": str(raw.get("description") or "").strip(),
+        "secondary_code": str(raw.get("secondary_code") or "").strip(),
         "examples": [str(x).strip() for x in examples if str(x).strip()],
-        "not_this": str(raw.get("not_this") or "").strip(),
+        "boundary_rule": boundary_rule,
+        "not_this": boundary_rule,
     }
     if raw.get("is_flag"):
         entry["is_flag"] = True
@@ -250,29 +267,36 @@ def entry_key(entry: dict[str, Any]) -> str:
 
 def _sorted_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     def sort_key(e: dict[str, Any]) -> tuple:
-        fields = e.get("fields") or [FIELD_USER]
-        primary = min((_FIELD_ORDER.get(f, 99) for f in fields), default=99)
+        aspect = e.get("aspect") or (e.get("fields") or [FIELD_USER])[0]
+        primary = _FIELD_ORDER.get(aspect, 99)
         return (primary, str(e.get("code") or "").lower())
 
     return sorted(entries, key=sort_key)
 
 
 def section_heading(entry: dict[str, Any]) -> str:
-    fields = ", ".join(FIELD_LABELS.get(f, f) for f in (entry.get("fields") or []))
+    aspect = entry.get("aspect") or (entry.get("fields") or [FIELD_USER])[0]
+    aspect_label = FIELD_LABELS.get(aspect, aspect)
     code = entry.get("code") or ""
+    secondary = str(entry.get("secondary_code") or "").strip()
     if entry.get("is_flag"):
-        return f"[FLAG · {fields}] {code}"
-    return f"[{fields}] {code}"
+        heading = f"[FLAG · {aspect_label}] {code}"
+    else:
+        heading = f"[{aspect_label}] {code}"
+    if secondary:
+        heading += f" (secondary: {secondary})"
+    return heading
 
 
 def section_body(entry: dict[str, Any]) -> str:
     lines = [entry.get("description") or ""]
     examples = entry.get("examples") or []
     if examples:
-        lines.append("Examples:")
+        lines.append("Example (code it):")
         lines.extend(f"  - {ex}" for ex in examples)
-    if entry.get("not_this"):
-        lines.append(f"Not this: {entry['not_this']}")
+    boundary = str(entry.get("boundary_rule") or entry.get("not_this") or "").strip()
+    if boundary:
+        lines.append(f"Boundary rule (do not code it): {boundary}")
     return "\n".join(lines).strip()
 
 
@@ -280,16 +304,21 @@ def parse_section_body(text: str) -> dict[str, Any]:
     lines = [ln.rstrip() for ln in (text or "").splitlines()]
     description_lines: list[str] = []
     examples: list[str] = []
-    not_this = ""
+    boundary_rule = ""
     mode = "description"
     for line in lines:
         stripped = line.strip()
-        if stripped.lower() == "examples:":
+        lower = stripped.lower()
+        if lower in {"examples:", "example (code it):"}:
             mode = "examples"
             continue
-        if stripped.lower().startswith("not this:"):
-            not_this = stripped.split(":", 1)[1].strip()
-            mode = "not_this"
+        if lower.startswith("not this:"):
+            boundary_rule = stripped.split(":", 1)[1].strip()
+            mode = "boundary"
+            continue
+        if lower.startswith("boundary rule"):
+            boundary_rule = stripped.split(":", 1)[1].strip() if ":" in stripped else stripped
+            mode = "boundary"
             continue
         if mode == "description":
             description_lines.append(line)
@@ -301,7 +330,8 @@ def parse_section_body(text: str) -> dict[str, Any]:
     return {
         "description": "\n".join(description_lines).strip(),
         "examples": examples,
-        "not_this": not_this,
+        "boundary_rule": boundary_rule,
+        "not_this": boundary_rule,
     }
 
 
@@ -482,6 +512,7 @@ def get_codebook(book_id: Optional[str] = None) -> dict[str, Any]:
     active = _serialize_book(book)
     return {
         "field_options": FIELD_OPTIONS,
+        "aspect_options": FIELD_OPTIONS,
         "active_id": store["active_id"],
         "codebooks": [{"id": b["id"], "name": b["name"]} for b in store["codebooks"]],
         "active": active,

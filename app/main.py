@@ -64,13 +64,16 @@ class MessageLabelUpdate(BaseModel):
 
 class CodebookEntryUpdate(BaseModel):
     id: str = Field(default="")
+    aspect: str = Field(default="")
     fields: list[str] = Field(default_factory=list)
     role: str = Field(default="")  # legacy
     code: str
     label: str = Field(default="")
     description: str = Field(default="")
+    secondary_code: str = Field(default="")
     examples: list[str] = Field(default_factory=list)
-    not_this: str = Field(default="")
+    boundary_rule: str = Field(default="")
+    not_this: str = Field(default="")  # legacy alias
     is_flag: bool = Field(default=False)
 
 

@@ -627,18 +627,44 @@ def cohens_kappa(
             else ""
         )
 
-    # Specific agreement per code stays informative when one code dominates.
+    # Specific agreement + binary kappa per code (code vs not-code).
     per_code = []
     for code in cats:
         both = confusion[code][code]
         denom = count_a[code] + count_b[code]
+        # Dichotomize: each rater either assigned `code` or not.
+        tp = both  # both said this code
+        # a said code, b said something else
+        a_only = count_a[code] - both
+        b_only = count_b[code] - both
+        # neither said this code
+        tn = n - both - a_only - b_only
+        binary_pairs = tp + a_only + b_only + tn
+        p_o = (tp + tn) / binary_pairs if binary_pairs else None
+        p_a = (tp + a_only) / binary_pairs if binary_pairs else 0
+        p_b = (tp + b_only) / binary_pairs if binary_pairs else 0
+        # Chance agreement for positive+negative: p_pos_chance + p_neg_chance
+        p_e = (p_a * p_b) + ((1 - p_a) * (1 - p_b)) if binary_pairs else None
+        if p_o is None or p_e is None:
+            code_kappa = None
+        elif p_e >= 1.0:
+            code_kappa = None
+        else:
+            code_kappa = round((p_o - p_e) / (1 - p_e), 4)
         per_code.append(
             {
                 "code": code,
                 "rater_a": count_a[code],
                 "rater_b": count_b[code],
                 "agreed": both,
+                "a_only": a_only,
+                "b_only": b_only,
+                "neither": tn,
                 "specific_agreement": round(2 * both / denom, 4) if denom else None,
+                "kappa": code_kappa,
+                "interpretation": kappa_interpretation(code_kappa),
+                "observed": round(p_o, 4) if p_o is not None else None,
+                "expected": round(p_e, 4) if p_e is not None else None,
             }
         )
 

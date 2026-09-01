@@ -482,6 +482,7 @@ function kappaBlockHtml(title, block, labels) {
       </div>`;
   }
   const cats = block.categories;
+  const perCode = block.per_code || [];
   return `
     <div class="la-kappa">
       <div class="la-kappa-head">
@@ -490,7 +491,7 @@ function kappaBlockHtml(title, block, labels) {
       </div>
       <div class="la-kappa-figures">
         <div>
-          <span class="la-compare-label">Cohen's κ</span>
+          <span class="la-compare-label">Overall κ</span>
           <strong>${block.kappa === null ? "—" : block.kappa.toFixed(3)}</strong>
           <span class="la-compare-sub">${escapeHtml(block.interpretation)}</span>
         </div>
@@ -506,35 +507,70 @@ function kappaBlockHtml(title, block, labels) {
         </div>
       </div>
       ${block.note ? `<p class="la-kappa-note">${escapeHtml(block.note)}</p>` : ""}
-      <table class="la-confusion">
+      <h5 class="la-kappa-subhead">IRR by code (code vs not-code)</h5>
+      <table class="la-per-code">
         <thead>
           <tr>
-            <th>${escapeHtml(labels.rater_a)} ↓ / ${escapeHtml(labels.rater_b)} →</th>
-            ${cats.map((c) => `<th class="num">${escapeHtml(labels.codes[c] || c)}</th>`).join("")}
-            <th class="num">Agreement</th>
+            <th>Code</th>
+            <th class="num">κ</th>
+            <th class="num">Agree</th>
+            <th class="num">Both</th>
+            <th class="num">${escapeHtml(labels.rater_a)} only</th>
+            <th class="num">${escapeHtml(labels.rater_b)} only</th>
+            <th class="num">Specific P</th>
           </tr>
         </thead>
         <tbody>
-          ${block.confusion
-            .map((row, i) => {
-              const spec = block.per_code[i];
+          ${perCode
+            .map((row) => {
+              const name = labels.codes[row.code] || row.code;
               return `
               <tr>
-                <th>${escapeHtml(labels.codes[row.code] || row.code)}</th>
-                ${row.counts
-                  .map(
-                    (n, j) =>
-                      `<td class="num${i === j ? " la-diag" : ""}${
-                        i !== j && n > 0 ? " la-off" : ""
-                      }">${n}</td>`
-                  )
-                  .join("")}
-                <td class="num">${pct1(spec ? spec.specific_agreement : null)}</td>
+                <th>${escapeHtml(name)}</th>
+                <td class="num"><strong>${
+                  row.kappa === null || row.kappa === undefined ? "—" : row.kappa.toFixed(3)
+                }</strong>
+                  <div class="la-compare-sub">${escapeHtml(row.interpretation || "")}</div>
+                </td>
+                <td class="num">${pct1(row.observed)}</td>
+                <td class="num">${row.agreed ?? 0}</td>
+                <td class="num">${row.a_only ?? 0}</td>
+                <td class="num">${row.b_only ?? 0}</td>
+                <td class="num">${pct1(row.specific_agreement)}</td>
               </tr>`;
             })
             .join("")}
         </tbody>
       </table>
+      <details class="la-confusion-details">
+        <summary>Confusion matrix</summary>
+        <table class="la-confusion">
+          <thead>
+            <tr>
+              <th>${escapeHtml(labels.rater_a)} ↓ / ${escapeHtml(labels.rater_b)} →</th>
+              ${cats.map((c) => `<th class="num">${escapeHtml(labels.codes[c] || c)}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${block.confusion
+              .map((row, i) => {
+                return `
+                <tr>
+                  <th>${escapeHtml(labels.codes[row.code] || row.code)}</th>
+                  ${row.counts
+                    .map(
+                      (n, j) =>
+                        `<td class="num${i === j ? " la-diag" : ""}${
+                          i !== j && n > 0 ? " la-off" : ""
+                        }">${n}</td>`
+                    )
+                    .join("")}
+                </tr>`;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </details>
     </div>`;
 }
 

@@ -3787,6 +3787,59 @@ body.is-labeler #codingFilter {
   padding: 7px 9px;
 }
 
+.la-kappa-subhead {
+  margin: 14px 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.la-per-code {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-bottom: 10px;
+}
+
+.la-per-code th,
+.la-per-code td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+  vertical-align: top;
+}
+
+.la-per-code thead th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.la-per-code .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.la-per-code .la-compare-sub {
+  display: block;
+  margin-top: 2px;
+}
+
+.la-confusion-details {
+  margin-top: 4px;
+}
+
+.la-confusion-details summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
 .la-confusion {
   width: 100%;
   border-collapse: collapse;
@@ -4396,16 +4449,79 @@ tr[data-code-key].codebook-pressed,
   font-size: calc(0.88rem * var(--codebook-font-scale, 1));
 }
 
+.codebook-table .col-aspect {
+  width: 108px;
+}
+
+.codebook-table .col-code {
+  width: 88px;
+}
+
+.codebook-table .col-definition {
+  width: auto;
+}
+
+.codebook-table .col-secondary {
+  width: 96px;
+}
+
+.codebook-table .col-example {
+  width: 120px;
+}
+
+.codebook-table .col-boundary {
+  width: 140px;
+}
+
+.codebook-sheet-table .codebook-aspect-cell {
+  background: #fff7ed;
+  border-right: 1px solid #fed7aa;
+  vertical-align: middle;
+}
+
+.codebook-aspect-select {
+  width: 100%;
+  border: 1px solid #fdba74;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #9a3412;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.codebook-aspect-select:focus {
+  outline: none;
+  border-color: #fb923c;
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.2);
+}
+
+.codebook-separator-row td {
+  height: 10px;
+  padding: 0;
+  border-bottom: none;
+  background: #fff;
+}
+
+.codebook-code-value {
+  font-style: italic;
+  color: #1e293b;
+}
+
+.codebook-def-cell,
+.codebook-secondary-cell,
+.codebook-example-cell,
+.codebook-boundary-cell {
+  min-width: 0;
+}
+
 .codebook-table .col-role {
   width: 52px;
 }
 
 .codebook-table .col-fields {
   width: 108px;
-}
-
-.codebook-table .col-code {
-  width: 72px;
 }
 
 .codebook-table .col-label {

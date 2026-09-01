@@ -1,12 +1,7 @@
-/** Codebook panel: multi-book store with Field multi-select. */
+/** Codebook panel: spreadsheet-style Aspect / Code / Definition columns. */
 (function () {
   const SAVE_DELAY_MS = 700;
-  const FIELD_SHORT = {
-    user_message: "User",
-    bot_message: "Bot",
-    per_conversation: "Conv",
-    per_bot: "Per Bot",
-  };
+  const ASPECT_ORDER = ["user_message", "bot_message", "per_conversation", "per_bot"];
 
   let book = null;
   let open = false;
@@ -35,8 +30,8 @@
     return div.innerHTML;
   }
 
-  function fieldOptions() {
-    return book?.field_options || [
+  function aspectOptions() {
+    return book?.aspect_options || book?.field_options || [
       { key: "user_message", label: "User Message" },
       { key: "bot_message", label: "Bot Message" },
       { key: "per_conversation", label: "Per Conversation" },
@@ -44,15 +39,18 @@
     ];
   }
 
-  function fieldLabel(key) {
-    const opt = fieldOptions().find((f) => f.key === key);
-    return opt?.label || FIELD_SHORT[key] || key;
+  function aspectLabel(key) {
+    const opt = aspectOptions().find((f) => f.key === key);
+    return opt?.label || key;
+  }
+
+  function entryAspect(entry) {
+    return entry?.aspect || (entry?.fields && entry.fields[0]) || "user_message";
   }
 
   function entryKey(entry) {
     if (entry?.id) return String(entry.id);
-    const fields = (entry?.fields || []).join("|");
-    return `${fields}:${entry?.code || ""}`;
+    return `${entryAspect(entry)}:${entry?.code || ""}`;
   }
 
   function findEntry(key) {
@@ -63,32 +61,62 @@
     return `e${Math.random().toString(36).slice(2, 10)}`;
   }
 
+  function displayCode(entry) {
+    return entry.label || entry.code || "";
+  }
+
   function sectionHeading(entry) {
-    const fields = (entry.fields || []).map((f) => fieldLabel(f)).join(", ") || "—";
+    const aspect = aspectLabel(entryAspect(entry));
     const code = entry.code || "";
-    if (entry.is_flag) return `[FLAG · ${fields}] ${code}`;
-    return `[${fields}] ${code}`;
+    const secondary = (entry.secondary_code || "").trim();
+    if (entry.is_flag) return `[FLAG · ${aspect}] ${code}`;
+    let heading = `[${aspect}] ${code}`;
+    if (secondary) heading += ` (secondary: ${secondary})`;
+    return heading;
   }
 
   function sectionBody(entry) {
     const lines = [entry.description || ""];
     if (entry.examples?.length) {
-      lines.push("Examples:");
+      lines.push("Example (code it):");
       entry.examples.forEach((ex) => lines.push(`  - ${ex}`));
     }
-    if (entry.not_this) lines.push(`Not this: ${entry.not_this}`);
+    const boundary = (entry.boundary_rule || entry.not_this || "").trim();
+    if (boundary) lines.push(`Boundary rule (do not code it): ${boundary}`);
     return lines.join("\n").trim();
   }
 
   function buildSystemPrompt() {
     const parts = [(book?.preamble || "").trim(), ""];
-    (book?.entries || []).forEach((entry) => {
-      parts.push(sectionHeading(entry));
-      parts.push(sectionBody(entry));
-      parts.push("");
+    groupedEntries().forEach(({ entries }) => {
+      entries.forEach((entry) => {
+        parts.push(sectionHeading(entry));
+        parts.push(sectionBody(entry));
+        parts.push("");
+      });
     });
     parts.push((book?.footer || "").trim());
     return `${parts.join("\n").trim()}\n`;
+  }
+
+  function groupedEntries() {
+    const order = aspectOptions().map((f) => f.key);
+    const groups = new Map();
+    (book?.entries || []).forEach((entry) => {
+      const aspect = entryAspect(entry);
+      if (!groups.has(aspect)) groups.set(aspect, []);
+      groups.get(aspect).push(entry);
+    });
+    const result = [];
+    order.forEach((aspect) => {
+      const entries = groups.get(aspect);
+      if (entries?.length) result.push({ aspect, entries });
+      groups.delete(aspect);
+    });
+    groups.forEach((entries, aspect) => {
+      if (entries.length) result.push({ aspect, entries });
+    });
+    return result;
   }
 
   function notifyChanged() {
@@ -178,7 +206,6 @@
     saveTimer = setTimeout(async () => {
       try {
         await saveBook();
-        // Re-render headings that may have changed (fields/code), keep focus if possible.
         refreshPromptHeadings();
       } catch (err) {
         setSaveStatus(err.message || "Save failed", "err");
@@ -235,22 +262,19 @@
     const row = document.querySelector(`#codebookBody tr[data-code-key="${CSS.escape(key)}"]`);
     if (!entry || !row) return;
     const code = row.querySelector('[data-field="code"]');
-    const label = row.querySelector('[data-field="label"]');
     const desc = row.querySelector('[data-field="description"]');
+    const secondary = row.querySelector('[data-field="secondary_code"]');
     const examples = row.querySelector('[data-field="examples"]');
-    const notThis = row.querySelector('[data-field="not_this"]');
-    if (code && document.activeElement !== code) code.textContent = entry.code || "";
-    if (label && document.activeElement !== label) label.textContent = entry.label || entry.code;
+    const boundary = row.querySelector('[data-field="boundary_rule"]');
+    if (code && document.activeElement !== code) code.textContent = displayCode(entry);
     if (desc && document.activeElement !== desc) desc.textContent = entry.description || "";
+    if (secondary && document.activeElement !== secondary) secondary.textContent = entry.secondary_code || "";
     if (examples && document.activeElement !== examples) {
       examples.textContent = (entry.examples || []).join("\n");
     }
-    if (notThis && document.activeElement !== notThis) notThis.textContent = entry.not_this || "";
-    row.querySelectorAll(".codebook-field-chip").forEach((chip) => {
-      const on = (entry.fields || []).includes(chip.dataset.fieldKey);
-      chip.classList.toggle("on", on);
-      chip.setAttribute("aria-pressed", on ? "true" : "false");
-    });
+    if (boundary && document.activeElement !== boundary) {
+      boundary.textContent = entry.boundary_rule || entry.not_this || "";
+    }
   }
 
   function applyTableEdit(key, field, value) {
@@ -262,10 +286,13 @@
         .map((s) => s.trim())
         .filter(Boolean);
     } else if (field === "code") {
-      entry.code = String(value || "").trim();
-      if (!entry.label || entry.label === entry.code) {
-        /* keep label in sync only when empty */
-      }
+      const next = String(value || "").trim();
+      entry.code = next;
+      entry.label = next;
+    } else if (field === "boundary_rule") {
+      const next = String(value || "").trim();
+      entry.boundary_rule = next;
+      entry.not_this = next;
     } else {
       entry[field] = String(value || "").trim();
     }
@@ -273,16 +300,14 @@
     scheduleSave();
   }
 
-  function toggleField(key, fieldKey) {
-    const entry = findEntry(key);
-    if (!entry) return;
-    const set = new Set(entry.fields || []);
-    if (set.has(fieldKey)) set.delete(fieldKey);
-    else set.add(fieldKey);
-    const order = fieldOptions().map((f) => f.key);
-    entry.fields = order.filter((k) => set.has(k));
-    syncTableRow(key);
-    syncPromptSection(key);
+  function setGroupAspect(aspect, entryKeys) {
+    entryKeys.forEach((key) => {
+      const entry = findEntry(key);
+      if (!entry) return;
+      entry.aspect = aspect;
+      entry.fields = [aspect];
+    });
+    renderBody();
     scheduleSave();
   }
 
@@ -292,6 +317,7 @@
     const parsed = parseSectionBody(text);
     entry.description = parsed.description;
     entry.examples = parsed.examples;
+    entry.boundary_rule = parsed.boundary_rule;
     entry.not_this = parsed.not_this;
     syncTableRow(key);
     scheduleSave();
@@ -301,17 +327,23 @@
     const lines = String(text || "").split("\n");
     const description = [];
     const examples = [];
-    let not_this = "";
+    let boundary_rule = "";
     let mode = "description";
     for (const line of lines) {
       const stripped = line.trim();
-      if (stripped.toLowerCase() === "examples:") {
+      const lower = stripped.toLowerCase();
+      if (lower === "examples:" || lower === "example (code it):") {
         mode = "examples";
         continue;
       }
-      if (stripped.toLowerCase().startsWith("not this:")) {
-        not_this = stripped.slice(9).trim();
-        mode = "not_this";
+      if (lower.startsWith("not this:")) {
+        boundary_rule = stripped.slice(9).trim();
+        mode = "boundary";
+        continue;
+      }
+      if (lower.startsWith("boundary rule")) {
+        boundary_rule = stripped.includes(":") ? stripped.slice(stripped.indexOf(":") + 1).trim() : stripped;
+        mode = "boundary";
         continue;
       }
       if (mode === "description") description.push(line);
@@ -320,23 +352,17 @@
         else if (stripped) examples.push(stripped);
       }
     }
-    return {
-      description: description.join("\n").trim(),
-      examples,
-      not_this,
-    };
+    return { description: description.join("\n").trim(), examples, boundary_rule, not_this: boundary_rule };
   }
 
-  function fieldsCellHtml(entry) {
-    const selected = new Set(entry.fields || []);
-    const chips = fieldOptions()
-      .map((opt) => {
-        const on = selected.has(opt.key);
-        const short = FIELD_SHORT[opt.key] || opt.label;
-        return `<button type="button" class="codebook-field-chip${on ? " on" : ""}" data-field-key="${escapeHtml(opt.key)}" title="${escapeHtml(opt.label)}" aria-pressed="${on ? "true" : "false"}">${escapeHtml(short)}</button>`;
-      })
+  function aspectSelectHtml(aspect, entryKeys) {
+    const options = aspectOptions()
+      .map(
+        (opt) =>
+          `<option value="${escapeHtml(opt.key)}"${opt.key === aspect ? " selected" : ""}>${escapeHtml(opt.label)}</option>`
+      )
       .join("");
-    return `<div class="codebook-fields">${chips}</div>`;
+    return `<select class="codebook-aspect-select" data-aspect-keys="${escapeHtml(entryKeys.join(","))}" aria-label="Aspect">${options}</select>`;
   }
 
   function toolbarHtml() {
@@ -363,52 +389,71 @@
       </div>`;
   }
 
-  function tableHtml() {
-    const rows = (book.entries || [])
-      .map((entry) => {
+  function tableRowsHtml() {
+    const groups = groupedEntries();
+    const parts = [];
+    groups.forEach((group, gi) => {
+      const entryKeys = group.entries.map((e) => entryKey(e));
+      group.entries.forEach((entry, idx) => {
         const key = entryKey(entry);
         const flag = entry.is_flag ? `<span class="codebook-flag">flag</span>` : "";
-        return `
-          <tr data-code-key="${escapeHtml(key)}">
-            <td class="codebook-fields-cell">${fieldsCellHtml(entry)}</td>
+        const aspectCell =
+          idx === 0
+            ? `<td class="codebook-aspect-cell" rowspan="${group.entries.length}">${aspectSelectHtml(group.aspect, entryKeys)}</td>`
+            : "";
+        parts.push(`
+          <tr data-code-key="${escapeHtml(key)}" class="codebook-data-row">
+            ${aspectCell}
             <td class="codebook-code">
-              <div class="codebook-editable" contenteditable="true" data-field="code" spellcheck="false">${escapeHtml(entry.code || "")}</div>
+              <div class="codebook-editable codebook-code-value" contenteditable="true" data-field="code" spellcheck="false">${escapeHtml(displayCode(entry))}</div>
               ${flag}
             </td>
-            <td class="codebook-label">
-              <div class="codebook-editable" contenteditable="true" data-field="label" spellcheck="true">${escapeHtml(entry.label || entry.code || "")}</div>
-            </td>
-            <td class="codebook-desc">
+            <td class="codebook-def-cell">
               <div class="codebook-editable" contenteditable="true" data-field="description" spellcheck="true">${escapeHtml(entry.description || "")}</div>
-              <div class="codebook-field-label">Examples (one per line)</div>
-              <div class="codebook-editable codebook-editable-examples" contenteditable="true" data-field="examples" spellcheck="true">${escapeHtml((entry.examples || []).join("\n"))}</div>
-              <div class="codebook-field-label">Not this</div>
-              <div class="codebook-editable" contenteditable="true" data-field="not_this" spellcheck="true">${escapeHtml(entry.not_this || "")}</div>
             </td>
-          </tr>`;
-      })
-      .join("");
+            <td class="codebook-secondary-cell">
+              <div class="codebook-editable" contenteditable="true" data-field="secondary_code" spellcheck="true">${escapeHtml(entry.secondary_code || "")}</div>
+            </td>
+            <td class="codebook-example-cell">
+              <div class="codebook-editable codebook-editable-examples" contenteditable="true" data-field="examples" spellcheck="true">${escapeHtml((entry.examples || []).join("\n"))}</div>
+            </td>
+            <td class="codebook-boundary-cell">
+              <div class="codebook-editable" contenteditable="true" data-field="boundary_rule" spellcheck="true">${escapeHtml(entry.boundary_rule || entry.not_this || "")}</div>
+            </td>
+          </tr>`);
+      });
+      if (gi < groups.length - 1) {
+        parts.push(`<tr class="codebook-separator-row" aria-hidden="true"><td colspan="6"></td></tr>`);
+      }
+    });
+    return parts.join("");
+  }
 
+  function tableHtml() {
     return `
       <section class="codebook-pane codebook-pane-table">
         <header class="codebook-pane-head">Table view</header>
         <div class="codebook-table-wrap">
-          <table class="codebook-table">
+          <table class="codebook-table codebook-sheet-table">
             <colgroup>
-              <col class="col-fields" />
+              <col class="col-aspect" />
               <col class="col-code" />
-              <col class="col-label" />
-              <col class="col-def" />
+              <col class="col-definition" />
+              <col class="col-secondary" />
+              <col class="col-example" />
+              <col class="col-boundary" />
             </colgroup>
             <thead>
               <tr>
-                <th>Field</th>
+                <th>Aspect</th>
                 <th>Code</th>
-                <th>Label</th>
                 <th>Definition</th>
+                <th>Secondary Code</th>
+                <th>Example (code it)</th>
+                <th>Boundary rule (do not code it)</th>
               </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody>${tableRowsHtml()}</tbody>
           </table>
         </div>
       </section>`;
@@ -562,13 +607,18 @@
 
     body.querySelector("#codebookAddRowBtn")?.addEventListener("click", () => {
       if (!book.entries) book.entries = [];
+      const last = book.entries[book.entries.length - 1];
+      const aspect = last ? entryAspect(last) : "user_message";
       const entry = {
         id: newEntryId(),
-        fields: ["user_message"],
+        aspect,
+        fields: [aspect],
         code: "",
         label: "",
         description: "",
+        secondary_code: "",
         examples: [],
+        boundary_rule: "",
         not_this: "",
       };
       book.entries.push(entry);
@@ -598,23 +648,15 @@
       });
     };
 
-    tableScroll?.addEventListener(
-      "scroll",
-      () => syncScroll(tableScroll, promptScroll),
-      { passive: true }
-    );
-    promptScroll?.addEventListener(
-      "scroll",
-      () => syncScroll(promptScroll, tableScroll),
-      { passive: true }
-    );
+    tableScroll?.addEventListener("scroll", () => syncScroll(tableScroll, promptScroll), { passive: true });
+    promptScroll?.addEventListener("scroll", () => syncScroll(promptScroll, tableScroll), { passive: true });
 
     body.querySelectorAll("tr[data-code-key], .codebook-prompt-section[data-code-key]").forEach((el) => {
       const key = el.dataset.codeKey;
       el.addEventListener("mouseenter", () => setLinked(key, false));
       el.addEventListener("mouseleave", clearHoverLinked);
       el.addEventListener("mousedown", (e) => {
-        if (e.target.closest(".codebook-editable, .codebook-field-chip, button, input, select")) return;
+        if (e.target.closest(".codebook-editable, .codebook-aspect-select, button, input, select")) return;
         setLinked(key, true);
         const peer =
           el.tagName === "TR"
@@ -638,17 +680,13 @@
       });
     });
 
-    body.querySelectorAll("tr[data-code-key] .codebook-field-chip").forEach((chip) => {
-      const row = chip.closest("tr");
-      const key = row?.dataset.codeKey;
-      const fieldKey = chip.dataset.fieldKey;
-      if (!key || !fieldKey) return;
-      chip.addEventListener("click", (e) => {
-        e.preventDefault();
+    body.querySelectorAll(".codebook-aspect-select").forEach((sel) => {
+      sel.addEventListener("change", (e) => {
         e.stopPropagation();
-        toggleField(key, fieldKey);
-        setLinked(key, true);
+        const keys = (sel.dataset.aspectKeys || "").split(",").filter(Boolean);
+        setGroupAspect(sel.value, keys);
       });
+      sel.addEventListener("mousedown", (e) => e.stopPropagation());
     });
 
     body.querySelectorAll("tr[data-code-key] .codebook-editable").forEach((el) => {
