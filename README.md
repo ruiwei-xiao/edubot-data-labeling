@@ -4,8 +4,6 @@ Browse Playlab conversation logs and system prompts. Data is loaded from a share
 
 ## Data source
 
-Google Sheet: [playlab_activities_with_messages](https://docs.google.com/spreadsheets/d/1xNPMlwkfviJk2GuDdrVZHnBTOF2LILGSoKQo5IxDGaQ/edit?usp=sharing)
-
 - **Conversations** ← tab `all_data_origin`
 - **System prompts** ← tab `system_prompt (origin)`
 
