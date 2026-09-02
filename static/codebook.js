@@ -11,6 +11,7 @@
   let saveTimer = null;
   let onToggle = null;
   let wired = false;
+  let aiLabelingRunning = false;
 
   let fontScale = Number(localStorage.getItem("playlab_codebook_font_scale")) || 1;
 
@@ -408,6 +409,7 @@
         <input type="text" class="codebook-name-input" id="codebookNameInput" value="${escapeHtml(activeName)}" title="Rename active codebook" aria-label="Codebook name" />
         ${canDelete ? `<button type="button" class="chip-btn codebook-delete-btn" id="codebookDeleteBtn" title="Delete active codebook">Delete</button>` : ""}
         <button type="button" class="chip-btn" id="codebookAddRowBtn" title="Append a new empty entry">Add row</button>
+        <button type="button" class="chip-btn codebook-ai-label-btn" id="codebookAiLabelBtn" title="Auto-label conversations with Claude using this codebook">Run AI labeling</button>
       </div>`;
   }
 
@@ -616,6 +618,72 @@
     wireInnerSplit(body);
   }
 
+  async function runAiLabeling() {
+    if (aiLabelingRunning) return;
+    const btn = document.querySelector("#codebookAiLabelBtn");
+    try {
+      aiLabelingRunning = true;
+      if (btn) btn.disabled = true;
+      setSaveStatus("Checking…");
+      const previewRes = await fetch("/api/ai-labeling/preview");
+      if (!previewRes.ok) {
+        const errBody = await previewRes.json().catch(() => ({}));
+        throw new Error(errBody.detail || "Preview failed");
+      }
+      const preview = await previewRes.json();
+      if (!preview.api_key_configured) {
+        throw new Error("ANTHROPIC_API_KEY is not configured on the server");
+      }
+      if (preview.pending_conversations === 0) {
+        setSaveStatus("All conversations already labeled by AI");
+        return;
+      }
+      const ok = window.confirm(
+        `Run AI labeling on ${preview.pending_conversations} conversations (~${preview.pending_messages} messages)?\n\nEstimated cost: ~$${preview.estimated_usd} (${preview.model})\n\nLabels will be saved under editor "sonnet".`
+      );
+      if (!ok) {
+        setSaveStatus("");
+        return;
+      }
+      let totalLabeled = 0;
+      let totalFailed = 0;
+      let totalCost = 0;
+      let done = false;
+      while (!done) {
+        setSaveStatus(`Labeling… (${totalLabeled} done, ~$${totalCost.toFixed(2)} so far)`);
+        const runRes = await fetch("/api/ai-labeling/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ batch_size: 3 }),
+        });
+        if (!runRes.ok) {
+          const errBody = await runRes.json().catch(() => ({}));
+          throw new Error(errBody.detail || "Labeling batch failed");
+        }
+        const batch = await runRes.json();
+        totalLabeled += batch.labeled || 0;
+        totalFailed += batch.failed || 0;
+        totalCost += batch.cost_usd || 0;
+        done = batch.done;
+        if (!done && batch.remaining > 0) {
+          setSaveStatus(
+            `Labeling… ${totalLabeled} convs, ${batch.remaining} remaining (~$${totalCost.toFixed(2)})`
+          );
+        }
+      }
+      const msg =
+        totalFailed > 0
+          ? `AI labeling finished: ${totalLabeled} ok, ${totalFailed} failed (~$${totalCost.toFixed(2)})`
+          : `AI labeling finished: ${totalLabeled} conversations (~$${totalCost.toFixed(2)})`;
+      setSaveStatus(msg, totalFailed ? "err" : "");
+    } catch (err) {
+      setSaveStatus(err.message || "AI labeling failed", "err");
+    } finally {
+      aiLabelingRunning = false;
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function wireToolbar(body) {
     body.querySelector("#codebookSelect")?.addEventListener("change", async (e) => {
       const id = e.target.value;
@@ -718,6 +786,8 @@
       );
       row?.focus();
     });
+
+    body.querySelector("#codebookAiLabelBtn")?.addEventListener("click", runAiLabeling);
   }
 
   function wirePaneInteractions(body) {

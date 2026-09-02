@@ -13,7 +13,8 @@ TMP_LABELS_PATH = Path("/tmp/playlab_message_labels.json")
 SHEET_LABELS_CACHE_PATH = Path("/tmp/playlab_message_labels_sheet.json")
 SHEET_SYNC_TTL_SEC = 60.0
 
-ALLOWED_EDITORS = {"ruiwei", "jiayi"}
+ALLOWED_EDITORS = {"ruiwei", "jiayi", "sonnet"}
+AI_EDITOR = "sonnet"
 
 BOT_MESSAGE_CODES = ["success", "fail", "others"]
 USER_MESSAGE_CODES = ["desired", "adversarial", "others"]
@@ -693,3 +694,56 @@ def set_message_label(
         **row,
         "sheet_sync": sheet_result,
     }
+
+
+def upsert_editor_label(
+    conv_id: str,
+    message_number: Union[str, int],
+    editor: str,
+    role: str = "",
+    code: str = "",
+    rationale: str = "",
+    iterative: bool = False,
+) -> dict[str, Any]:
+    """Write a label for any allowed editor (including AI). Skips sheet sync for sonnet."""
+    cid = (conv_id or "").strip()
+    mid = str(message_number).strip()
+    editor_norm = _normalize_editor(editor)
+    if editor_norm not in ALLOWED_EDITORS:
+        raise ValueError(f"Unsupported editor: {editor}")
+
+    role_l = (role or "").strip().lower()
+    if role_l in {"assistant"}:
+        role_l = "bot"
+    allowed = set(codes_for_role(role_l) if role_l else list(_ALL_CODES))
+    allowed |= set(_ALL_CODES)
+
+    selected = _pick_code(code, None, allowed=allowed)
+    rationale_norm = (rationale or "").strip()
+    iterative_on = bool(iterative) and role_l == "user"
+
+    if selected and selected not in allowed:
+        raise ValueError(f"Invalid code for role {role_l}: {selected}")
+
+    load_message_labels()
+    key = message_key(cid, mid)
+    store = _coerce_store_row(_labels.get(key) or {"by": {}})
+    by = dict(store.get("by") or {})
+
+    stored_codes = [selected] if selected else []
+    if iterative_on:
+        stored_codes.append("iterative")
+
+    row = {
+        "code": selected,
+        "codes": stored_codes,
+        "iterative": iterative_on,
+        "rationale": rationale_norm,
+        "role": role_l,
+        "updated_by": editor_norm,
+        "updated_at": _now_iso(),
+        "source": "ai" if editor_norm == AI_EDITOR else "",
+    }
+    by[editor_norm] = row
+    _labels[key] = {"by": by}
+    return {"key": key, "conv_id": cid, "message_number": mid, **row}

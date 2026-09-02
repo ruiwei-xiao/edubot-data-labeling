@@ -145,11 +145,16 @@
           ],
           "code": "Iterative refinement",
           "label": "Iterative refinement",
-          "description": "Builder repeatedly tests and refines the bot based on conversation outcomes.",
-          "secondary_code": "",
-          "examples": [],
-          "boundary_rule": "",
-          "not_this": ""
+          "description": "The author probes distinct behavioral dimensions of the bot — guardrails, off-topic and emotional input, missing resources, refusals, edge cases — and re-runs the same probe across sessions to check the response is stable. The testing reads as verification against an intended specification rather than sampling for interesting output.",
+          "secondary_code": "Decision signal: probes span ≥3 behavioral dimensions beyond the happy path, AND at least one probe is deliberately repeated across separate sessions (regression check), often reworded slightly to test robustness to phrasing.",
+          "examples": [
+            "SmartSyllabus ESL801 (0% student-facing failure): 'I need a laptop' repeated across 4 sessions and 'I am feeling sad' across 3, alongside factual syllabus lookups, a Canvas tech problem, and a vocabulary question — covering resource, emotional, technical, and factual paths.",
+            "Accessibility Buddy: author walks captions, PowerPoint, email, and PDF in turn, then probes scope with 'do students have to comply?'",
+            "Same probe re-sent as 'I need a laptop' / 'i need a laptop' / 'I don't have a laptop' to test sensitivity to phrasing."
+          ],
+          "boundary_rule": "Do NOT require evidence that the system prompt changed — the export stores only the current prompt version (just 4 of 185 bots show any variation), so prompt edits are unobservable; infer refinement from probe structure alone. If probes are varied but each appears once, with no repeat and no boundary probe, prefer Opportunistic exploration.",
+          "not_this": "Do NOT require evidence that the system prompt changed — the export stores only the current prompt version (just 4 of 185 bots show any variation), so prompt edits are unobservable; infer refinement from probe structure alone. If probes are varied but each appears once, with no repeat and no boundary probe, prefer Opportunistic exploration.",
+          "order": 4
         },
         {
           "id": "c559478b",
@@ -160,11 +165,15 @@
           ],
           "code": "Limited evaluation",
           "label": "Limited evaluation",
-          "description": "Builder runs a small number of tests without deep iteration.",
-          "secondary_code": "",
-          "examples": [],
-          "boundary_rule": "",
-          "not_this": ""
+          "description": "One or two short author sessions that walk a single happy path and stop as soon as the bot returns a plausible reply. The author confirms the bot switches on; they never check it against their own written workflow, guardrails, or uploaded materials.",
+          "secondary_code": "Decision signal: ≤2 pre-launch builder sessions, typically ≤5 turns each and within one burst; every session follows the same intended path; no off-script, boundary, or refusal probe; no probe repeated.",
+          "examples": [
+            "A single 3-turn session: author answers 'yes' to the greeting, asks one in-scope question, reads the reply, stops.",
+            "Two sessions minutes apart asking near-identical in-scope questions, both ending at the first substantive reply."
+          ],
+          "boundary_rule": "Session count is the weaker cue — the defining feature is that testing stops at first plausible output. Many sessions that still only walk the happy path are Opportunistic exploration, not Limited evaluation.",
+          "not_this": "Session count is the weaker cue — the defining feature is that testing stops at first plausible output. Many sessions that still only walk the happy path are Opportunistic exploration, not Limited evaluation.",
+          "order": 2
         },
         {
           "id": "bf3c8f3d",
@@ -175,11 +184,15 @@
           ],
           "code": "No testing",
           "label": "No testing",
-          "description": "Little or no builder testing evidence for this bot.",
-          "secondary_code": "",
-          "examples": [],
-          "boundary_rule": "",
-          "not_this": ""
+          "description": "The author never ran the bot themselves before real users arrived. Either there is no builder session at all for this bot, or every builder session postdates the first non-builder conversation. The bot was shipped on the strength of the written prompt alone.",
+          "secondary_code": "Decision signal: count builder sessions whose first message timestamp precedes the first non-builder conversation. Zero such sessions = No testing. Assignable from metadata alone, without reading transcripts.",
+          "examples": [
+            "Bot has non-builder conversations but no builder session predating the first student conversation (11 of the 82 deployed bots).",
+            "All builder sessions occur days after students already started using the bot — the author is reacting to something, not testing before launch."
+          ],
+          "boundary_rule": "If builder sessions exist only after students arrived, still code No testing for the pre-launch question, but code the character of those post-launch sessions separately; reactive checking is usually Opportunistic exploration.",
+          "not_this": "If builder sessions exist only after students arrived, still code No testing for the pre-launch question, but code the character of those post-launch sessions separately; reactive checking is usually Opportunistic exploration.",
+          "order": 1
         },
         {
           "id": "8727ff25",
@@ -190,11 +203,15 @@
           ],
           "code": "Opportunistic exploration",
           "label": "Opportunistic exploration",
-          "description": "Builder explores the bot casually or inconsistently.",
-          "secondary_code": "",
-          "examples": [],
-          "boundary_rule": "",
-          "not_this": ""
+          "description": "Many author sessions, but the variation is in surface content rather than bot behavior. The author swaps the topic, artifact, or example and re-runs the same happy path each time, never probing a boundary and never checking output against the written spec. A defect plainly visible in the transcript recurs across sessions without being acknowledged.",
+          "secondary_code": "Decision signal: ≥3 sessions; probes differ only in subject matter while the interaction shape stays constant; no boundary/off-topic/refusal/missing-resource probe; no probe re-run to check consistency; the same deviation from the prompt appears in most or all sessions unaddressed.",
+          "examples": [
+            "Miss Marple: 21 author sessions (8 inside one 40-minute burst) cycling through Carrington, Rembrandt, da Vinci, Rembrandt again. The bot opens with 'Welcome to Miss Marple! Are you ready to get started?' instead of the scripted 'Oh dear! I've heard a work of art has been stolen.' in every session and is never corrected. It later failed at its first turn in 73% of student conversations.",
+            "Author abandons a session after 3 turns and immediately starts another with a different example, repeatedly, without changing what is being asked of the bot."
+          ],
+          "boundary_rule": "High session count alone does not make this Iterative refinement. Miss Marple (21 sessions, 7 days) and SmartSyllabus ESL801 (18 sessions, 5 days) are indistinguishable on counts but opposite on this code. Judge the dimension along which probes vary, not how many there are.",
+          "not_this": "High session count alone does not make this Iterative refinement. Miss Marple (21 sessions, 7 days) and SmartSyllabus ESL801 (18 sessions, 5 days) are indistinguishable on counts but opposite on this code. Judge the dimension along which probes vary, not how many there are.",
+          "order": 3
         }
       ],
       "preamble": "You are a research coder labeling Playlab chatbot conversations.\nCode every labeled unit according to the codebook fields below.\n\nOutput one JSON object per label:\n{ \"target\": \"<field>\", \"id\": \"<message_number|conv_id|bot_title>\", \"code\": \"<code>\", \"iterative\": <bool>, \"rationale\": \"<short note>\" }\n\nRules:\n- Use codes exactly as defined in this codebook.\n- Set iterative=true only when the codebook marks a code as a flag for user messages, or when revisiting the same question/thread.\n- Add a brief rationale when the code is non-obvious.\n- Read the full conversation and the bot's system prompt before coding.\n\nCode definitions:",
@@ -490,7 +507,92 @@
       ],
       "preamble": "You are a research coder labeling Playlab chatbot conversations.\nCode every labeled unit according to the codebook fields below.\n\nOutput one JSON object per label:\n{ \"target\": \"<field>\", \"id\": \"<message_number|conv_id|bot_title>\", \"code\": \"<code>\", \"iterative\": <bool>, \"rationale\": \"<short note>\" }\n\nRules:\n- Use codes exactly as defined in this codebook.\n- Set iterative=true only when the codebook marks a code as a flag for user messages, or when revisiting the same question/thread.\n- Add a brief rationale when the code is non-obvious.\n- Read the full conversation and the bot's system prompt before coding.\n\nCode definitions:",
       "footer": "When uncertain:\n- Prefer an \"others\" / catch-all code over forcing a rare code.\n- If two coders would likely disagree, explain why in the rationale."
+    },
+    {
+      "id": "author-testing",
+      "name": "Author testing behavior",
+      "entries": [
+        {
+          "id": "014ff768",
+          "aspect": "per_bot",
+          "aspect_label": "Per Bot",
+          "fields": [
+            "per_bot"
+          ],
+          "code": "No testing",
+          "label": "No testing",
+          "description": "The author never ran the bot themselves before real users arrived. Either there is no builder session at all for this bot, or every builder session postdates the first non-builder conversation. The bot was shipped on the strength of the written prompt alone.",
+          "secondary_code": "Decision signal: count builder sessions whose first message timestamp precedes the first non-builder conversation. Zero such sessions = No testing. Assignable from metadata alone, without reading transcripts.",
+          "examples": [
+            "Bot has non-builder conversations but no builder session predating the first student conversation (11 of the 82 deployed bots).",
+            "All builder sessions occur days after students already started using the bot — the author is reacting to something, not testing before launch."
+          ],
+          "boundary_rule": "If builder sessions exist only after students arrived, still code No testing for the pre-launch question, but code the character of those post-launch sessions separately; reactive checking is usually Opportunistic exploration.",
+          "not_this": "If builder sessions exist only after students arrived, still code No testing for the pre-launch question, but code the character of those post-launch sessions separately; reactive checking is usually Opportunistic exploration.",
+          "order": 1
+        },
+        {
+          "id": "28c0d525",
+          "aspect": "per_bot",
+          "aspect_label": "Per Bot",
+          "fields": [
+            "per_bot"
+          ],
+          "code": "Limited evaluation",
+          "label": "Limited evaluation",
+          "description": "One or two short author sessions that walk a single happy path and stop as soon as the bot returns a plausible reply. The author confirms the bot switches on; they never check it against their own written workflow, guardrails, or uploaded materials.",
+          "secondary_code": "Decision signal: ≤2 pre-launch builder sessions, typically ≤5 turns each and within one burst; every session follows the same intended path; no off-script, boundary, or refusal probe; no probe repeated.",
+          "examples": [
+            "A single 3-turn session: author answers 'yes' to the greeting, asks one in-scope question, reads the reply, stops.",
+            "Two sessions minutes apart asking near-identical in-scope questions, both ending at the first substantive reply."
+          ],
+          "boundary_rule": "Session count is the weaker cue — the defining feature is that testing stops at first plausible output. Many sessions that still only walk the happy path are Opportunistic exploration, not Limited evaluation.",
+          "not_this": "Session count is the weaker cue — the defining feature is that testing stops at first plausible output. Many sessions that still only walk the happy path are Opportunistic exploration, not Limited evaluation.",
+          "order": 2
+        },
+        {
+          "id": "6a4da5dd",
+          "aspect": "per_bot",
+          "aspect_label": "Per Bot",
+          "fields": [
+            "per_bot"
+          ],
+          "code": "Opportunistic exploration",
+          "label": "Opportunistic exploration",
+          "description": "Many author sessions, but the variation is in surface content rather than bot behavior. The author swaps the topic, artifact, or example and re-runs the same happy path each time, never probing a boundary and never checking output against the written spec. A defect plainly visible in the transcript recurs across sessions without being acknowledged.",
+          "secondary_code": "Decision signal: ≥3 sessions; probes differ only in subject matter while the interaction shape stays constant; no boundary/off-topic/refusal/missing-resource probe; no probe re-run to check consistency; the same deviation from the prompt appears in most or all sessions unaddressed.",
+          "examples": [
+            "Miss Marple: 21 author sessions (8 inside one 40-minute burst) cycling through Carrington, Rembrandt, da Vinci, Rembrandt again. The bot opens with 'Welcome to Miss Marple! Are you ready to get started?' instead of the scripted 'Oh dear! I've heard a work of art has been stolen.' in every session and is never corrected. It later failed at its first turn in 73% of student conversations.",
+            "Author abandons a session after 3 turns and immediately starts another with a different example, repeatedly, without changing what is being asked of the bot."
+          ],
+          "boundary_rule": "High session count alone does not make this Iterative refinement. Miss Marple (21 sessions, 7 days) and SmartSyllabus ESL801 (18 sessions, 5 days) are indistinguishable on counts but opposite on this code. Judge the dimension along which probes vary, not how many there are.",
+          "not_this": "High session count alone does not make this Iterative refinement. Miss Marple (21 sessions, 7 days) and SmartSyllabus ESL801 (18 sessions, 5 days) are indistinguishable on counts but opposite on this code. Judge the dimension along which probes vary, not how many there are.",
+          "order": 3
+        },
+        {
+          "id": "5a9ad672",
+          "aspect": "per_bot",
+          "aspect_label": "Per Bot",
+          "fields": [
+            "per_bot"
+          ],
+          "code": "Iterative refinement",
+          "label": "Iterative refinement",
+          "description": "The author probes distinct behavioral dimensions of the bot — guardrails, off-topic and emotional input, missing resources, refusals, edge cases — and re-runs the same probe across sessions to check the response is stable. The testing reads as verification against an intended specification rather than sampling for interesting output.",
+          "secondary_code": "Decision signal: probes span ≥3 behavioral dimensions beyond the happy path, AND at least one probe is deliberately repeated across separate sessions (regression check), often reworded slightly to test robustness to phrasing.",
+          "examples": [
+            "SmartSyllabus ESL801 (0% student-facing failure): 'I need a laptop' repeated across 4 sessions and 'I am feeling sad' across 3, alongside factual syllabus lookups, a Canvas tech problem, and a vocabulary question — covering resource, emotional, technical, and factual paths.",
+            "Accessibility Buddy: author walks captions, PowerPoint, email, and PDF in turn, then probes scope with 'do students have to comply?'",
+            "Same probe re-sent as 'I need a laptop' / 'i need a laptop' / 'I don't have a laptop' to test sensitivity to phrasing."
+          ],
+          "boundary_rule": "Do NOT require evidence that the system prompt changed — the export stores only the current prompt version (just 4 of 185 bots show any variation), so prompt edits are unobservable; infer refinement from probe structure alone. If probes are varied but each appears once, with no repeat and no boundary probe, prefer Opportunistic exploration.",
+          "not_this": "Do NOT require evidence that the system prompt changed — the export stores only the current prompt version (just 4 of 185 bots show any variation), so prompt edits are unobservable; infer refinement from probe structure alone. If probes are varied but each appears once, with no repeat and no boundary probe, prefer Opportunistic exploration.",
+          "order": 4
+        }
+      ],
+      "preamble": "You are a research coder classifying how the AUTHOR of a Playlab bot tested it before and around deployment.\n\nUNIT OF ANALYSIS: one bot. You are given every builder (author) conversation for that bot, concatenated in chronological order by first-message timestamp, together with the bot's system prompt. Do not code individual conversations; code the testing history as a whole.\n\nAssign exactly one of: no_testing | limited_evaluation | opportunistic_exploration | iterative_refinement.\n\nOutput a single JSON object:\n{ \"bot\": \"<bot name>\", \"code\": \"<code>\", \"confidence\": \"high\"|\"medium\"|\"low\", \"rationale\": \"<2-3 sentences citing specific probes and timestamps>\", \"defect_observed\": \"<any deviation from the system prompt visible in the author's own sessions, or empty>\" }\n\nBefore coding, read the system prompt and note what the bot is SUPPOSED to do (scripted openings, workflow order, guardrails, conciseness rules, use of uploaded materials). Then judge whether the author's sessions actually check those things.\n\nCode definitions:",
+      "footer": "Ordering and bursts:\n- Order sessions by the first message datetime, not the conversation date field — the date field is day-resolution only and will make a single burst look like multi-day iteration.\n- Many sessions inside one short burst indicate re-rolling, not iteration.\n\nThe central discrimination:\n- opportunistic_exploration and iterative_refinement look IDENTICAL on session count and day count. The separating question is: did the probes vary along a dimension of BOT BEHAVIOR (guardrail, boundary, refusal, missing resource, emotional input), or only along SURFACE CONTENT (a different topic, artwork, or example)?\n- A second separating question: was any probe deliberately re-run to check consistency? Repetition is evidence of verification, not of confusion.\n\nWhen uncertain:\n- If the author clearly saw a deviation from their own prompt and moved on without addressing it, that is evidence against iterative_refinement.\n- Prefer the lower-effort code when the two are genuinely tied, and set confidence to \"low\" with the disagreement explained in the rationale."
     }
   ],
-  "updated_at": "2026-09-01T04:18:41+00:00"
+  "updated_at": "2026-09-01T20:38:13+00:00"
 }

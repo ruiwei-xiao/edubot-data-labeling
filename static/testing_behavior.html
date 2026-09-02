@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Testing behavior · Playlab Chatlog Analyzer</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body class="page-testing-behavior">
+  <div class="shell">
+    <header class="topbar">
+      <div class="topbar-row topbar-row-primary">
+        <div class="brand">
+          <div class="brand-mark">P</div>
+          <div>
+            <div class="brand-title">Playlab Chatlog Analyzer</div>
+          </div>
+        </div>
+        <nav class="view-tabs" aria-label="Views">
+          <a class="view-tab" href="/">Browser</a>
+          <a class="view-tab" href="/cost_analysis">Cost analysis</a>
+          <a class="view-tab" href="/label_analysis">Intent &amp; outcome</a>
+          <a class="view-tab active" href="/testing_behavior" aria-current="page">Testing behavior</a>
+        </nav>
+      </div>
+
+      <div class="topbar-row tb-toolbar">
+        <div class="tb-control tb-control-key">
+          <label for="tbApiKey">Anthropic API key</label>
+          <input type="password" id="tbApiKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
+          <label class="tb-check" title="Keep the key in this browser tab only; it is never written to the server">
+            <input type="checkbox" id="tbRemember" />
+            <span>Remember for this tab</span>
+          </label>
+        </div>
+        <div class="tb-control">
+          <label for="tbBatch" title="Larger batches = fewer status updates but faster overall">Batch</label>
+          <select id="tbBatch">
+            <option value="1" selected>1 bot</option>
+            <option value="3">3 bots</option>
+            <option value="5">5 bots</option>
+            <option value="10">10 bots</option>
+          </select>
+        </div>
+        <button type="button" class="tb-btn tb-btn-primary" id="tbRun">Run AI labeling</button>
+        <button type="button" class="tb-btn" id="tbStop" hidden>Stop</button>
+        <div class="tb-run-panel" id="tbRunPanel" hidden>
+          <div class="tb-run-head">
+            <span class="tb-run-spinner" aria-hidden="true"></span>
+            <span class="tb-run-title" id="tbRunTitle">Labeling…</span>
+            <span class="tb-run-elapsed" id="tbRunElapsed"></span>
+          </div>
+          <div class="tb-run-detail" id="tbRunDetail"></div>
+          <div class="tb-run-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+            <div class="tb-run-fill" id="tbRunFill"></div>
+          </div>
+        </div>
+        <span class="tb-status" id="tbStatus"></span>
+        <div class="tb-toolbar-spacer"></div>
+        <a class="tb-btn" id="tbSheetLink" href="#" target="_blank" rel="noopener" title="Open the Google Sheet tab that stores these labels" hidden>Open Sheet</a>
+        <a class="tb-btn" id="tbExportCsv" href="/api/testing-behavior/export?fmt=csv" download title="Download a snapshot CSV (labels live on Google Sheet)">Download CSV</a>
+        <a class="tb-btn" id="tbExportJson" href="/api/testing-behavior/export?fmt=json" download title="Download a snapshot JSON (labels live on Google Sheet)">Download JSON</a>
+        <button type="button" class="tb-btn" id="tbRefresh">Refresh</button>
+      </div>
+    </header>
+
+    <div class="workspace tb-page">
+      <section class="tb-summary" id="tbSummary"></section>
+
+      <div class="tb-main">
+        <section class="tb-list-pane">
+          <div class="tb-list-head">
+            <input type="search" id="tbSearch" class="tb-search" placeholder="Filter bots…" />
+            <select id="tbFilter" class="tb-filter">
+              <option value="all">All bots</option>
+              <option value="unlabeled">Unlabeled</option>
+              <option value="labeled">Labeled</option>
+              <option value="deployed">Deployed only</option>
+              <option value="ai">AI-labeled</option>
+              <option value="manual">Manually labeled</option>
+            </select>
+          </div>
+          <div class="tb-list" id="tbList">
+            <div class="empty">Loading bots…</div>
+          </div>
+        </section>
+
+        <section class="tb-detail-pane" id="tbDetail">
+          <div class="empty">Select a bot to review its author testing sessions.</div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="/testing_behavior.js"></script>
+</body>
+</html>

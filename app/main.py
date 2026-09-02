@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -17,6 +19,8 @@ from app.codebook import (
     save_active_codebook,
     set_active_codebook,
 )
+from app.ai_labeling import preview_labeling, run_labeling_batch
+from app import testing_behavior as tb
 from app.conversation_labels import (
     list_conversation_labels,
     load_conversation_labels,
@@ -93,6 +97,29 @@ class CodebookActivate(BaseModel):
     id: str
 
 
+class AiLabelingRun(BaseModel):
+    batch_size: int = Field(default=3, ge=1, le=20)
+
+
+class TestingBehaviorLabel(BaseModel):
+    bot: str
+    code: str = Field(default="")
+    rationale: str = Field(default="")
+    confidence: str = Field(default="")
+    defect_observed: str = Field(default="")
+    editor: str = Field(default="")
+
+
+class TestingBehaviorRun(BaseModel):
+    """The API key is supplied per request and is never written to disk."""
+
+    api_key: str = Field(default="")
+    batch_size: int = Field(default=3, ge=1, le=10)
+    model: str = Field(default=tb.DEFAULT_MODEL)
+    only_unlabeled: bool = Field(default=True)
+    bot: str = Field(default="")
+
+
 class ConversationLabelUpdate(BaseModel):
     code: str = Field(default="")
     editor: str = Field(default="")
@@ -134,6 +161,16 @@ async def label_analysis_page():
     return path.read_text(encoding="utf-8")
 
 
+@app.get("/testing_behavior", response_class=HTMLResponse)
+async def testing_behavior_page():
+    path = FRONTEND_DIR / "testing_behavior.html"
+    if not path.exists():
+        path = STATIC_DIR / "testing_behavior.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="testing_behavior.html not found")
+    return path.read_text(encoding="utf-8")
+
+
 def _asset_response(name: str) -> FileResponse:
     """Serve a frontend asset, revalidated on every load so edits show up."""
     path = FRONTEND_DIR / name
@@ -167,6 +204,11 @@ async def label_analysis_js():
 @app.get("/codebook.js")
 async def codebook_js():
     return _asset_response("codebook.js")
+
+
+@app.get("/testing_behavior.js")
+async def testing_behavior_js():
+    return _asset_response("testing_behavior.js")
 
 
 @app.get("/api/codebook")
@@ -204,6 +246,127 @@ async def remove_codebook(book_id: str):
         return delete_codebook(book_id)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
+
+
+@app.get("/api/ai-labeling/preview")
+async def ai_labeling_preview():
+    try:
+        return preview_labeling()
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.post("/api/ai-labeling/run")
+async def ai_labeling_run(body: AiLabelingRun):
+    try:
+        return run_labeling_batch(batch_size=body.batch_size)
+    except RuntimeError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.get("/api/testing-behavior/bots")
+async def testing_behavior_bots():
+    try:
+        from app.sheet_labels import credentials_available
+        from app.testing_behavior_sheets import sheet_id, sheet_tab
+
+        bots = tb.build_profiles()
+        return {
+            "codes": tb.CODES,
+            "bots": bots,
+            "storage": {
+                "backend": "google_sheet",
+                "sheet_id": sheet_id(),
+                "tab": sheet_tab(),
+                "credentials_configured": credentials_available(),
+                "url": f"https://docs.google.com/spreadsheets/d/{sheet_id()}/edit",
+            },
+        }
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.get("/api/testing-behavior/bot")
+async def testing_behavior_bot(name: str = Query(...)):
+    try:
+        return tb.bot_detail(name)
+    except ValueError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
+
+
+@app.put("/api/testing-behavior/label")
+async def testing_behavior_set_label(body: TestingBehaviorLabel):
+    try:
+        return tb.set_label(
+            body.bot,
+            body.code,
+            editor=body.editor,
+            rationale=body.rationale,
+            confidence=body.confidence,
+            defect_observed=body.defect_observed,
+            source="manual",
+        )
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    except RuntimeError as err:
+        raise HTTPException(status_code=502, detail=str(err)) from err
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.get("/api/testing-behavior/preview")
+async def testing_behavior_preview(only_unlabeled: bool = Query(default=True)):
+    return tb.preview(only_unlabeled=only_unlabeled)
+
+
+@app.post("/api/testing-behavior/run")
+async def testing_behavior_run(body: TestingBehaviorRun):
+    key = body.api_key.strip() or (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    try:
+        if body.bot:
+            result = tb.label_bot(body.bot, key, model=body.model)
+            return {
+                "processed": 1,
+                "labeled": 1,
+                "failed": 0,
+                "remaining": 0,
+                "done": True,
+                "results": [result],
+                "errors": [],
+                "usage": result["usage"],
+                "cost_usd": 0.0,
+            }
+        return tb.run_batch(
+            key,
+            batch_size=body.batch_size,
+            model=body.model,
+            only_unlabeled=body.only_unlabeled,
+        )
+    except RuntimeError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+
+@app.get("/api/testing-behavior/export")
+async def testing_behavior_export(fmt: str = Query(default="json")):
+    if fmt.lower() == "csv":
+        return Response(
+            content=tb.export_csv(),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=testing_behavior_labels.csv"
+            },
+        )
+    return Response(
+        content=json.dumps(tb.export_json(), indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": "attachment; filename=testing_behavior_labels.json"
+        },
+    )
 
 
 @app.get("/api/conversation-labels")

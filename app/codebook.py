@@ -296,6 +296,10 @@ def _normalize_entry(raw: dict[str, Any]) -> dict[str, Any]:
     }
     if raw.get("is_flag"):
         entry["is_flag"] = True
+    try:
+        entry["order"] = int(raw["order"])
+    except (KeyError, TypeError, ValueError):
+        pass
     return entry
 
 
@@ -309,7 +313,12 @@ def _sorted_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         aspect = e.get("aspect") or (e.get("fields") or [FIELD_USER])[0]
         primary = _FIELD_ORDER.get(aspect, 99)
         aspect_label = _aspect_label_for(e).lower()
-        return (primary, aspect_label, str(e.get("code") or "").lower())
+        # Entries may pin an explicit order; unpinned ones fall back to alphabetical.
+        try:
+            explicit = int(e["order"])
+        except (KeyError, TypeError, ValueError):
+            explicit = 10_000
+        return (primary, aspect_label, explicit, str(e.get("code") or "").lower())
 
     return sorted(entries, key=sort_key)
 

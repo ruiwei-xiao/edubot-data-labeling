@@ -1,0 +1,21 @@
+{
+  "codes": [
+    "No testing",
+    "Limited evaluation",
+    "Opportunistic exploration",
+    "Iterative refinement"
+  ],
+  "labels": {
+    "Miss Marple": {
+      "bot": "Miss Marple",
+      "code": "Opportunistic exploration",
+      "rationale": "21 sessions swapping artworks; scripted opening never delivered and never corrected.",
+      "confidence": "high",
+      "defect_observed": "Step 1 opening line not executed in any session.",
+      "editor": "ruiwei",
+      "source": "manual",
+      "updated_at": "2026-09-01T20:51:56+00:00"
+    }
+  },
+  "updated_at": "2026-09-01T20:51:56+00:00"
+}
