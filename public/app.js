@@ -344,6 +344,10 @@ async function loadList() {
 
   items = data.conversations || [];
   const visible = visibleConversations(items);
+  // Recompute sample red/green using conversation labels when in conversation-only mode.
+  (items || []).forEach((c) => {
+    if (c?.is_sample) c.is_coded = conversationFullyCoded(c.id);
+  });
   updateListCountLabel();
 
   if (!visible.length) {
@@ -520,6 +524,7 @@ async function applyLabelLevelFilter() {
   if (selectedId && !visible.find((c) => String(c.id) === String(selectedId))) {
     selectedId = visible[0]?.id || null;
   }
+  refreshAllConversationCodedFlags();
   updateListCountLabel();
   renderList();
   if (selectedId) await loadDetail(selectedId);
@@ -1344,6 +1349,7 @@ async function loadConversationCodeOptions() {
     /* ignore */
   }
   ensureConversationCodeOptions();
+  refreshAllConversationCodedFlags();
 }
 
 
@@ -1527,7 +1533,18 @@ async function saveMessageLabel(convId, messageNumber, role, code, rationale, it
   return row;
 }
 
+function conversationLabelSubmitted(convId) {
+  const row = conversationLabels[String(convId)] || conversationLabels[convId];
+  if (!row) return false;
+  const norm = normalizeConversationLabel(row);
+  return norm.codes.length > 0 || !!norm.updated_at;
+}
+
 function conversationFullyCoded(convId) {
+  // Conversation-only labeling: green once conversation labels are submitted.
+  if (isConversationOnlyLabelMode()) {
+    return conversationLabelSubmitted(convId);
+  }
   const required =
     String(selectedId) === String(convId) && currentLabelableMsgIds.length
       ? currentLabelableMsgIds
@@ -1551,13 +1568,19 @@ function conversationFullyCoded(convId) {
 }
 
 function syncConversationCodedFlag(convId) {
-  const item = items.find((c) => c.id === convId);
+  const item = items.find((c) => String(c.id) === String(convId));
   const coded = conversationFullyCoded(convId);
   if (item) item.is_coded = coded;
   const showSample = canEditBotLabels() && !!item?.is_sample;
   document.querySelectorAll(`[data-id="${CSS.escape(String(convId))}"]`).forEach((el) => {
     el.classList.toggle("sample-coded", showSample && coded);
     el.classList.toggle("sample-uncoded", showSample && !coded);
+  });
+}
+
+function refreshAllConversationCodedFlags() {
+  (items || []).forEach((c) => {
+    if (c?.is_sample) syncConversationCodedFlag(c.id);
   });
 }
 
@@ -1775,7 +1798,8 @@ function normalizeConversationLabel(row) {
 }
 
 function conversationSelectedCodes(convId) {
-  return normalizeConversationLabel(conversationLabels[convId]).codes;
+  const row = conversationLabels[String(convId)] || conversationLabels[convId];
+  return normalizeConversationLabel(row).codes;
 }
 
 function conversationDefectPanelHtml(convId) {
@@ -1830,14 +1854,17 @@ function conversationDefectPanelHtml(convId) {
     ? `Selected: <strong>${escapeHtml(selectedList.join(", "))}</strong>`
     : "No codes selected";
   const hint = editable
-    ? "Multi-select · hover a code for its definition"
+    ? "Multi-select · hover a code for its definition · Submit to save"
     : "Enter naacl_label1/2 at top right to edit · hover for definitions";
+  const submitted = conversationLabelSubmitted(convId);
+  const submitLabel = submitted ? "Saved" : "Submit";
+  const submitCls = submitted ? "is-saved" : "";
 
   const floatCls = convDefectFloat ? " is-floating" : "";
   const floatLabel = convDefectFloat ? "Dock" : "Float";
-  return `<section class="section conv-defect-section${floatCls}" id="convDefectSection" data-conv="${escapeHtml(
-    String(convId)
-  )}">
+  return `<section class="section conv-defect-section${floatCls}${
+    submitted ? " is-submitted" : ""
+  }" id="convDefectSection" data-conv="${escapeHtml(String(convId))}">
     <div class="section-head conv-defect-drag-handle" title="${convDefectFloat ? "Drag to move" : ""}">
       <h3>Conversation labels</h3>
       <div class="conv-defect-head-actions">
@@ -1848,7 +1875,12 @@ function conversationDefectPanelHtml(convId) {
       </div>
     </div>
     <div class="conv-defect-body">${groupsHtml}</div>
-    <div class="conv-defect-summary" id="convDefectSummary">${summary}</div>
+    <div class="conv-defect-footer">
+      <div class="conv-defect-summary" id="convDefectSummary">${summary}</div>
+      <button type="button" class="conv-defect-submit ${submitCls}" id="convDefectSubmitBtn" ${
+        editable ? "" : "disabled"
+      }>${submitLabel}</button>
+    </div>
     <div class="conv-defect-resize-handles" aria-hidden="true">
       <span class="conv-defect-resize n" data-resize="n"></span>
       <span class="conv-defect-resize s" data-resize="s"></span>
@@ -1882,6 +1914,7 @@ async function saveConversationCodes(convId, codes) {
     return null;
   }
   const row = normalizeConversationLabel(await res.json());
+  conversationLabels[String(convId)] = row;
   conversationLabels[convId] = row;
   return row;
 }
@@ -2071,6 +2104,34 @@ function wireConversationLabelControl(convId) {
   const section = document.getElementById("convDefectSection");
   if (!section) return;
   const summary = document.getElementById("convDefectSummary");
+  const submitBtn = document.getElementById("convDefectSubmitBtn");
+
+  const draftCodes = () =>
+    [...section.querySelectorAll(".conv-defect-check:checked")].map((el) => el.value);
+
+  const codesEqual = (a, b) => {
+    const sa = [...new Set(a || [])].map(String).sort();
+    const sb = [...new Set(b || [])].map(String).sort();
+    return sa.length === sb.length && sa.every((v, i) => v === sb[i]);
+  };
+
+  const syncSubmitBtn = () => {
+    if (!submitBtn) return;
+    const saved = conversationSelectedCodes(convId);
+    const draft = draftCodes();
+    const submitted = conversationLabelSubmitted(convId);
+    const dirty = !codesEqual(draft, saved);
+    section.classList.toggle("is-submitted", submitted && !dirty);
+    submitBtn.disabled = !canEditBotLabels() || (!dirty && submitted);
+    submitBtn.classList.toggle("is-saved", submitted && !dirty);
+    if (!canEditBotLabels()) {
+      submitBtn.textContent = "Submit";
+    } else if (submitted && !dirty) {
+      submitBtn.textContent = "Saved";
+    } else {
+      submitBtn.textContent = "Submit";
+    }
+  };
 
   const syncUi = (codes) => {
     const selected = new Set(codes);
@@ -2085,27 +2146,43 @@ function wireConversationLabelControl(convId) {
         ? `Selected: <strong>${escapeHtml(codes.join(", "))}</strong>`
         : "No codes selected";
     }
+    syncSubmitBtn();
   };
 
   section.querySelectorAll(".conv-defect-check").forEach((input) => {
-    input.addEventListener("change", async () => {
+    input.addEventListener("change", () => {
       if (!canEditBotLabels()) {
         input.checked = !input.checked;
         alert("Only naacl_label1 or naacl_label2 can edit conversation labels.");
         return;
       }
-      const codes = [...section.querySelectorAll(".conv-defect-check:checked")].map((el) => el.value);
-      syncUi(codes);
-      const row = await saveConversationCodes(convId, codes);
-      if (!row) {
-        // revert to last saved
-        syncUi(conversationSelectedCodes(convId));
-        return;
-      }
-      syncUi(row.codes || []);
+      syncUi(draftCodes());
     });
   });
 
+  submitBtn?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!canEditBotLabels()) {
+      alert("Only naacl_label1 or naacl_label2 can edit conversation labels.");
+      return;
+    }
+    const codes = draftCodes();
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving…";
+    const row = await saveConversationCodes(convId, codes);
+    if (!row) {
+      syncUi(conversationSelectedCodes(convId));
+      return;
+    }
+    // Ensure submitted state even when codes are empty (reviewed, no defects).
+    if (!row.updated_at) row.updated_at = new Date().toISOString();
+    conversationLabels[convId] = row;
+    syncUi(row.codes || []);
+    syncConversationCodedFlag(convId);
+  });
+
+  syncSubmitBtn();
   wireConvDefectFloat(section);
 }
 

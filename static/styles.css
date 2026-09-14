@@ -2766,10 +2766,8 @@ body.is-labeler #codingFilter {
   padding-right: 2px;
 }
 
-.conv-defect-section.is-floating .conv-defect-summary {
+.conv-defect-section.is-floating .conv-defect-footer {
   flex: 0 0 auto;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
 }
 
 .conv-defect-resize-handles {
@@ -2931,15 +2929,60 @@ body.is-labeler #codingFilter {
   transform: translateY(0);
 }
 
-.conv-defect-summary {
+.conv-defect-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.conv-defect-summary {
   font-size: 0.78rem;
   color: var(--muted);
+  min-width: 0;
 }
 
 .conv-defect-summary strong {
   color: var(--text);
   font-weight: 600;
+}
+
+.conv-defect-submit {
+  border: 1px solid #111827;
+  background: #111827;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0 16px;
+  height: 36px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.conv-defect-submit:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.conv-defect-submit:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.conv-defect-submit.is-saved:disabled {
+  opacity: 0.85;
+  background: #14532d;
+  border-color: #14532d;
+}
+
+.conv-defect-section.is-floating .conv-defect-footer {
+  border-top: 1px solid var(--border);
 }
 
 .meta-grid {
