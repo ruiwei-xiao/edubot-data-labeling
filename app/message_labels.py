@@ -13,7 +13,7 @@ TMP_LABELS_PATH = Path("/tmp/playlab_message_labels.json")
 SHEET_LABELS_CACHE_PATH = Path("/tmp/playlab_message_labels_sheet.json")
 SHEET_SYNC_TTL_SEC = 60.0
 
-ALLOWED_EDITORS = {"ruiwei", "jiayi", "sonnet"}
+ALLOWED_EDITORS = {"naacl_label1", "naacl_label2", "sonnet"}
 AI_EDITOR = "sonnet"
 
 BOT_MESSAGE_CODES = ["success", "fail", "others"]
@@ -22,6 +22,9 @@ USER_EXTRA_FLAGS = ["iterative"]
 _ALL_CODES = set(BOT_MESSAGE_CODES + USER_MESSAGE_CODES)
 
 LABEL_SHEET_COLUMNS = {
+    "naacl_label1": ("naacl_label1_labeling", "naacl_label1_rationale"),
+    "naacl_label2": ("naacl_label2_labeling", "naacl_label2_rationale"),
+    # legacy aliases still readable if present in older local caches
     "ruiwei": ("ruiwei_labeling", "ruiwei_rationale"),
     "jiayi": ("jiayi_labeling", "jiayi_rationale"),
 }
@@ -600,7 +603,7 @@ def set_message_label(
 
     editor_norm = _normalize_editor(editor)
     if editor_norm not in ALLOWED_EDITORS:
-        raise PermissionError("Only ruiwei or jiayi can edit message labels")
+        raise PermissionError("Only naacl_label1 or naacl_label2 can edit message labels")
 
     role_l = (role or "").strip().lower()
     allowed = set(codes_for_role(role_l) if role_l else list(_ALL_CODES))

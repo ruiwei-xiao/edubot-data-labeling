@@ -18,14 +18,18 @@ let botLabelCodes = [
 ];
 let botLabels = {}; // bot_title -> { code, updated_by, updated_at }
 let messageLabels = {}; // `${convId}:${msgNum}` -> { codes, role, ... }
-let conversationLabels = {}; // conv_id -> { code, ... }
+let conversationLabels = {}; // conv_id -> { codes, code, ... }
 let conversationCodes = [];
+let conversationCodeOptions = []; // [{id, primary, label, definition}]
+const FALLBACK_CONVERSATION_CODE_OPTIONS = [{"id": "F1", "primary": "Factual", "label": "Incorrect content (hallucination)", "definition": "The bot states false, fabricated, or miscalculated information, or misgrades a student answer."}, {"id": "F2", "primary": "Factual", "label": "Incomplete or imprecise content", "definition": "The bot's content is not wrong but omits a required element or is too vague to support the goal in the system prompt."}, {"id": "F3", "primary": "Factual", "label": "Internal inconsistency", "definition": "The bot contradicts something it said earlier in the same conversation."}, {"id": "F4", "primary": "Factual", "label": "Grounding failure", "definition": "The bot ignores or misreads course material or context supplied in the system prompt or uploaded by the builder."}, {"id": "F5", "primary": "Factual (scope)", "label": "Guardrail breach", "definition": "The bot performs an action the system prompt explicitly forbids."}, {"id": "F6", "primary": "Factual (scope)", "label": "Off-task drift", "definition": "The bot follows the student away from the bot's stated purpose and does not redirect."}, {"id": "F7", "primary": "Factual (scope)", "label": "Over-refusal", "definition": "The bot refuses or deflects an in-scope request by misapplying a guardrail."}, {"id": "W1", "primary": "Workflow", "label": "Student abandonment", "definition": "The student stops responding before the goal is reached; the last turn is the bot's."}, {"id": "W2", "primary": "Workflow", "label": "Unanswered student question", "definition": "The bot ignores or deflects a direct student question and continues its own script."}, {"id": "W3", "primary": "Workflow", "label": "Unanswered bot question", "definition": "The student does not answer the bot's question and the bot neither re-asks nor adapts; the thread is dropped."}, {"id": "W4", "primary": "Workflow", "label": "Broken or truncated output", "definition": "The bot's response is cut off, empty, or unreadable due to formatting (e.g., raw LaTeX, broken markdown)."}, {"id": "W5", "primary": "Workflow", "label": "Repetition loop", "definition": "The bot repeats the same question or explanation across consecutive turns without progress."}, {"id": "W6", "primary": "Workflow", "label": "Multi-question overload", "definition": "The bot asks several questions in one turn; the student answers at most one and the rest are lost."}, {"id": "W7", "primary": "Workflow", "label": "Skipped or missing structure", "definition": "The bot fails to follow a workflow step defined in the system prompt (e.g., skips a required opening, diagnosis, or wrap-up step)."}, {"id": "W8", "primary": "Workflow", "label": "Language or format mismatch", "definition": "The bot responds in a language or output format that contradicts the system prompt or the student's input."}, {"id": "D1", "primary": "Diagnose", "label": "No diagnosis before instruction", "definition": "The bot begins teaching or giving feedback without eliciting the student's prior knowledge or current attempt when the prompt expects it."}, {"id": "D2", "primary": "Diagnose", "label": "Misjudged level", "definition": "The bot's explanation is pitched too high or too low for the student's demonstrated level."}, {"id": "D3", "primary": "Diagnose", "label": "Missed error (false positive)", "definition": "The bot fails to notice a student mistake or affirms an incorrect answer."}, {"id": "D4", "primary": "Diagnose", "label": "False error (false negative)", "definition": "The bot marks a correct student answer as wrong."}, {"id": "D5", "primary": "Diagnose", "label": "Ignored learner signal", "definition": "The student explicitly signals confusion, frustration, or a time constraint and the bot proceeds unchanged."}, {"id": "D6", "primary": "Diagnose", "label": "Misidentified request", "definition": "The bot misreads what the student is actually asking for (task type or intent)."}, {"id": "P1", "primary": "Pedagogical", "label": "Answer dumping (too early)", "definition": "The bot reveals the full solution before the student has attempted the task when the prompt calls for guided help."}, {"id": "P2", "primary": "Pedagogical", "label": "Over-scaffolding (too late)", "definition": "The bot keeps asking guiding questions when the student is clearly stuck or the question is factual/logistical, withholding information unproductively."}, {"id": "P3", "primary": "Pedagogical", "label": "Cognitive overload (verbosity)", "definition": "The bot delivers too much content at once relative to the student's level or the task."}, {"id": "P4", "primary": "Pedagogical", "label": "Strategy-task mismatch (refer to kli/blooms)", "definition": "The instructional approach does not fit the task type."}, {"id": "P5", "primary": "Pedagogical", "label": "No engagement opportunity", "definition": "The bot explains passively with no questions, prompts, or openings for the student to act."}, {"id": "P6", "primary": "Pedagogical", "label": "Poor feedback quality", "definition": "Feedback is vague, does not acknowledge correct parts, or is delivered in a discouraging way."}, {"id": "P7", "primary": "Pedagogical", "label": "Failure to recover", "definition": "After the student corrects the bot or pushes back, the bot does not adjust its strategy or content."}];
 let currentLabelableMsgIds = []; // message_number strings for open conversation
 let BOT_MSG_CODES = ["success", "fail", "others"];
 let USER_MSG_CODES = ["desired", "adversarial", "others"];
 let USER_MSG_FLAGS = ["iterative"];
-const ALLOWED_LABELERS = new Set(["ruiwei", "jiayi"]);
+const ALLOWED_LABELERS = new Set(["naacl_label1", "naacl_label2"]);
 const LABELER_KEY = "playlab_labeler_name";
+const LABEL_LEVELS_KEY = "playlab_label_levels_v3";
+const ALL_LABEL_LEVELS = ["conversation", "message", "bot"];
 const LABELS_LOCAL_KEY = "playlab_bot_labels_cache";
 const MSG_LABELS_LOCAL_KEY = "playlab_message_labels_cache";
 const CODE_SHORT = {
@@ -63,8 +67,11 @@ const labelerNameInput = document.getElementById("labelerNameInput");
 const labelerConfirmBtn = document.getElementById("labelerConfirmBtn");
 const labelerStatus = document.getElementById("labelerStatus");
 let labelerConfirmed = false;
+let labelLevels = new Set(["conversation"]);
 
 const DETAIL_WIDTH_KEY = "playlab_detail_width";
+/** Set false to hide the Codebook panel / trigger (label codes still load via API). */
+const CODEBOOK_UI_ENABLED = false;
 const CODEBOOK_WIDTH_KEY = "playlab_codebook_width";
 const FILTERS_PANEL_W_KEY = "playlab_filters_panel_w";
 const COL_WIDTH_KEY = "playlab_bot_col_width";
@@ -419,6 +426,70 @@ function canEditBotLabels() {
   return labelerConfirmed && ALLOWED_LABELERS.has(labelerName().toLowerCase());
 }
 
+function loadLabelLevels() {
+  const defaultLevels = ["conversation"];
+  try {
+    const raw = JSON.parse(localStorage.getItem(LABEL_LEVELS_KEY) || "null");
+    if (Array.isArray(raw) && raw.length) {
+      labelLevels = new Set(raw.filter((x) => ALL_LABEL_LEVELS.includes(x)));
+    } else {
+      labelLevels = new Set(defaultLevels);
+    }
+  } catch {
+    labelLevels = new Set(defaultLevels);
+  }
+  if (!labelLevels.size) labelLevels = new Set(defaultLevels);
+}
+
+function saveLabelLevels() {
+  localStorage.setItem(LABEL_LEVELS_KEY, JSON.stringify([...labelLevels]));
+}
+
+function labelLevelEnabled(level) {
+  return labelLevels.has(level);
+}
+
+function syncLabelLevelUi() {
+  const box = document.getElementById("labelLevelBox");
+  if (!box) return;
+  box.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.checked = labelLevels.has(input.value);
+  });
+  ALL_LABEL_LEVELS.forEach((level) => {
+    document.body.classList.toggle(`label-level-${level}`, labelLevels.has(level));
+  });
+}
+
+async function applyLabelLevelFilter() {
+  syncLabelLevelUi();
+  if (groupByBot) renderBotMap();
+  if (selectedId) await loadDetail(selectedId);
+}
+
+function wireLabelLevelBox() {
+  const box = document.getElementById("labelLevelBox");
+  if (!box || box.dataset.wired) return;
+  box.dataset.wired = "1";
+  loadLabelLevels();
+  syncLabelLevelUi();
+  box.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.addEventListener("change", async () => {
+      const next = new Set(
+        [...box.querySelectorAll('input[type="checkbox"]:checked')].map((el) => el.value)
+      );
+      // Keep at least one level selected
+      if (!next.size) {
+        input.checked = true;
+        next.add(input.value);
+      }
+      labelLevels = next;
+      saveLabelLevels();
+      await applyLabelLevelFilter();
+    });
+  });
+}
+
+
 function refreshLabelerUi({ refetch = true } = {}) {
   const canLabel = canEditBotLabels();
   document.body.classList.toggle("is-labeler", canLabel);
@@ -463,7 +534,7 @@ function syncLabelerStatus() {
     labelerStatus.textContent = `Editing as ${name.toLowerCase()}`;
     labelerStatus.classList.add("can-edit");
   } else {
-    labelerStatus.textContent = "View only (ruiwei/jiayi)";
+    labelerStatus.textContent = "View only (naacl_label1/2)";
     labelerStatus.classList.add("blocked");
   }
 }
@@ -517,6 +588,7 @@ function botLabelCode(botTitle) {
 }
 
 function botLevelLabelHtml(botTitle) {
+  if (!labelLevelEnabled("bot")) return "";
   if (!canEditBotLabels()) return "";
   const code = botLabelCode(botTitle);
   const editable = true;
@@ -570,7 +642,7 @@ async function loadBotLabels() {
 
 async function saveBotLabel(botTitle, code) {
   if (!canEditBotLabels()) {
-    alert("Only ruiwei or jiayi can edit bot-level codes. Enter your name at the top right.");
+    alert("Only naacl_label1 or naacl_label2 can edit bot-level codes. Enter your name at the top right.");
     syncLabelerStatus();
     if (groupByBot) renderBotMap();
     return;
@@ -1159,8 +1231,11 @@ function applyCodebookConfig(data) {
   if (Array.isArray(active.per_bot_codes) && active.per_bot_codes.length) {
     botLabelCodes = active.per_bot_codes.slice();
   }
-  if (Array.isArray(active.conversation_codes)) {
+  if (Array.isArray(active.conversation_codes) && active.conversation_codes.length) {
     conversationCodes = active.conversation_codes.slice();
+  }
+  if (Array.isArray(active.conversation_code_options) && active.conversation_code_options.length) {
+    conversationCodeOptions = active.conversation_code_options.slice();
   }
 }
 
@@ -1169,6 +1244,39 @@ async function loadCodebookConfig() {
   if (!res.ok) return;
   applyCodebookConfig(await res.json());
 }
+
+
+
+function ensureConversationCodeOptions() {
+  if (conversationCodeOptions.length) return;
+  if (FALLBACK_CONVERSATION_CODE_OPTIONS.length) {
+    conversationCodeOptions = FALLBACK_CONVERSATION_CODE_OPTIONS.slice();
+    conversationCodes = conversationCodeOptions.map((o) => o.id);
+  }
+}
+
+async function loadConversationCodeOptions() {
+  try {
+    const res = await fetch("/api/conversation-labels");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data.code_options) && data.code_options.length) {
+      conversationCodeOptions = data.code_options.slice();
+      conversationCodes = conversationCodeOptions.map((o) => o.id);
+    } else if (Array.isArray(data.codes) && data.codes.length) {
+      conversationCodes = data.codes.slice();
+    }
+    if (data.labels && typeof data.labels === "object") {
+      Object.entries(data.labels).forEach(([cid, row]) => {
+        conversationLabels[cid] = normalizeConversationLabel(row);
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+  ensureConversationCodeOptions();
+}
+
 
 function normalizeMsgCode(code) {
   return String(code || "")
@@ -1238,6 +1346,7 @@ function messageLabelStatusHtml(code, iterative, updatedBy) {
 }
 
 function messageLabelControlsHtml(convId, m) {
+  if (!labelLevelEnabled("message")) return "";
   if (!canEditBotLabels()) return "";
   const role = (m.role || "").toLowerCase();
   const codes = messageCodesForRole(role);
@@ -1306,7 +1415,7 @@ function messageLabelControlsHtml(convId, m) {
 
 async function saveMessageLabel(convId, messageNumber, role, code, rationale, iterative = false) {
   if (!canEditBotLabels()) {
-    alert("Only ruiwei or jiayi can edit message labels. Confirm your name at the top right.");
+    alert("Only naacl_label1 or naacl_label2 can edit message labels. Confirm your name at the top right.");
     if (selectedId) loadDetail(selectedId);
     return null;
   }
@@ -1485,26 +1594,15 @@ function renderConversationDetail(c) {
     .filter((m) => messageCodesForRole(m.role).length)
     .map((m) => String(m.message_number));
 
-  if (Array.isArray(c.conversation_codes)) conversationCodes = c.conversation_codes.slice();
-  const convLabelCode = (c.conversation_label && c.conversation_label.code) || "";
-  if (c.conversation_label) conversationLabels[convId] = c.conversation_label;
+  if (Array.isArray(c.conversation_code_options) && c.conversation_code_options.length) {
+    conversationCodeOptions = c.conversation_code_options.slice();
+    conversationCodes = conversationCodeOptions.map((o) => o.id);
+  } else if (Array.isArray(c.conversation_codes) && c.conversation_codes.length) {
+    conversationCodes = c.conversation_codes.slice();
+  }
+  if (c.conversation_label) conversationLabels[convId] = normalizeConversationLabel(c.conversation_label);
 
-  const convLabelHtml =
-    conversationCodes.length && canEditBotLabels()
-      ? `<label class="conv-level-label">Conv code
-          <select id="convLabelSelect" data-conv="${escapeHtml(String(convId))}">
-            <option value="">Select…</option>
-            ${conversationCodes
-              .map(
-                (code) =>
-                  `<option value="${escapeHtml(code)}" ${
-                    code === convLabelCode ? "selected" : ""
-                  }>${escapeHtml(code)}</option>`
-              )
-              .join("")}
-          </select>
-        </label>`
-      : "";
+  const convLabelHtml = conversationDefectPanelHtml(convId);
 
   const disagreedIds = new Set((c.disagreed_messages || []).map(String));
   const disagreementDetails = c.disagreement_details || {};
@@ -1541,11 +1639,12 @@ function renderConversationDetail(c) {
         }</div>
       </div>
       <div class="detail-actions">
-        ${convLabelHtml}
         ${c.url ? `<a href="${escapeHtml(c.url)}" target="_blank" rel="noopener">Open in Playlab</a>` : ""}
         <button type="button" id="copyPromptBtn">Copy prompt</button>
       </div>
     </div>
+
+    ${convLabelHtml}
 
     <div class="meta-grid">
       <div class="meta-card"><div class="label">Conversation ID</div><div class="value">${escapeHtml(c.conv_id)}</div></div>
@@ -1591,27 +1690,153 @@ function renderConversationDetail(c) {
   syncConversationCodedFlag(convId);
 }
 
+function normalizeConversationLabel(row) {
+  if (!row || typeof row !== "object") return { codes: [], code: "", updated_by: "", updated_at: "" };
+  const codes = Array.isArray(row.codes)
+    ? row.codes.map((c) => String(c || "").trim()).filter(Boolean)
+    : [];
+  const single = String(row.code || "").trim();
+  if (single && !codes.includes(single)) codes.unshift(single);
+  return {
+    codes,
+    code: codes[0] || "",
+    updated_by: row.updated_by || "",
+    updated_at: row.updated_at || "",
+  };
+}
+
+function conversationSelectedCodes(convId) {
+  return normalizeConversationLabel(conversationLabels[convId]).codes;
+}
+
+function conversationDefectPanelHtml(convId) {
+  if (!labelLevelEnabled("conversation")) return "";
+  ensureConversationCodeOptions();
+  const options = conversationCodeOptions.length
+    ? conversationCodeOptions
+    : FALLBACK_CONVERSATION_CODE_OPTIONS;
+  if (!options.length) return "";
+
+  const selected = new Set(conversationSelectedCodes(convId));
+  const editable = canEditBotLabels();
+  const groups = [];
+  const seen = new Map();
+  options.forEach((opt) => {
+    const primary = opt.primary || "Other";
+    if (!seen.has(primary)) {
+      seen.set(primary, []);
+      groups.push([primary, seen.get(primary)]);
+    }
+    seen.get(primary).push(opt);
+  });
+
+  const groupsHtml = groups
+    .map(([primary, opts]) => {
+      const chips = opts
+        .map((opt) => {
+          const id = String(opt.id || "");
+          const on = selected.has(id);
+          const title = opt.definition || opt.label || id;
+          const label = opt.label ? `${id} · ${opt.label}` : id;
+          return `<label class="conv-defect-chip ${on ? "is-on" : ""}" title="${escapeHtml(
+            title
+          )}" data-tip="${escapeHtml(title)}">
+            <input type="checkbox" class="conv-defect-check" value="${escapeHtml(id)}" ${
+              on ? "checked" : ""
+            } ${editable ? "" : "disabled"} />
+            <span class="conv-defect-id">${escapeHtml(id)}</span>
+            <span class="conv-defect-name">${escapeHtml(opt.label || id)}</span>
+          </label>`;
+        })
+        .join("");
+      return `<div class="conv-defect-group">
+        <div class="conv-defect-primary">${escapeHtml(primary)}</div>
+        <div class="conv-defect-chips">${chips}</div>
+      </div>`;
+    })
+    .join("");
+
+  const selectedList = [...selected];
+  const summary = selectedList.length
+    ? `Selected: <strong>${escapeHtml(selectedList.join(", "))}</strong>`
+    : "No codes selected";
+  const hint = editable
+    ? "Multi-select · hover a code for its definition"
+    : "Enter naacl_label1/2 at top right to edit · hover for definitions";
+
+  return `<section class="section conv-defect-section" id="convDefectSection" data-conv="${escapeHtml(
+    String(convId)
+  )}">
+    <div class="section-head">
+      <h3>Conversation labels</h3>
+      <span class="conv-defect-hint">${hint}</span>
+    </div>
+    <div class="conv-defect-body">${groupsHtml}</div>
+    <div class="conv-defect-summary" id="convDefectSummary">${summary}</div>
+  </section>`;
+}
+
+async function saveConversationCodes(convId, codes) {
+  if (!canEditBotLabels()) {
+    alert("Only naacl_label1 or naacl_label2 can edit conversation labels.");
+    return null;
+  }
+  const title =
+    document.querySelector(".detail-title")?.textContent?.trim() ||
+    items.find((c) => String(c.id) === String(convId))?.title ||
+    "";
+  const res = await fetch(`/api/conversation-labels/${encodeURIComponent(convId)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ codes, editor: labelerName(), title }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.detail || "Failed to save conversation labels");
+    return null;
+  }
+  const row = normalizeConversationLabel(await res.json());
+  conversationLabels[convId] = row;
+  return row;
+}
+
 function wireConversationLabelControl(convId) {
-  const select = document.getElementById("convLabelSelect");
-  if (!select) return;
-  select.addEventListener("change", async () => {
-    if (!canEditBotLabels()) {
-      alert("Only ruiwei or jiayi can edit conversation labels.");
-      return;
-    }
-    const code = select.value;
-    const res = await fetch(`/api/conversation-labels/${encodeURIComponent(convId)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, editor: labelerName() }),
+  const section = document.getElementById("convDefectSection");
+  if (!section) return;
+  const summary = document.getElementById("convDefectSummary");
+
+  const syncUi = (codes) => {
+    const selected = new Set(codes);
+    section.querySelectorAll(".conv-defect-chip").forEach((chip) => {
+      const input = chip.querySelector(".conv-defect-check");
+      const on = !!(input && selected.has(input.value));
+      chip.classList.toggle("is-on", on);
+      if (input) input.checked = on;
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(err.detail || "Failed to save conversation label");
-      return;
+    if (summary) {
+      summary.innerHTML = codes.length
+        ? `Selected: <strong>${escapeHtml(codes.join(", "))}</strong>`
+        : "No codes selected";
     }
-    const row = await res.json();
-    conversationLabels[convId] = row;
+  };
+
+  section.querySelectorAll(".conv-defect-check").forEach((input) => {
+    input.addEventListener("change", async () => {
+      if (!canEditBotLabels()) {
+        input.checked = !input.checked;
+        alert("Only naacl_label1 or naacl_label2 can edit conversation labels.");
+        return;
+      }
+      const codes = [...section.querySelectorAll(".conv-defect-check:checked")].map((el) => el.value);
+      syncUi(codes);
+      const row = await saveConversationCodes(convId, codes);
+      if (!row) {
+        // revert to last saved
+        syncUi(conversationSelectedCodes(convId));
+        return;
+      }
+      syncUi(row.codes || []);
+    });
   });
 }
 
@@ -1802,7 +2027,7 @@ if (botMapLegend) {
     wireCountSelect("userSelectWrap");
     wireCountSelect("codingSelectWrap");
     wireSplitHandle();
-    wireCodebookSplitHandle();
+    if (CODEBOOK_UI_ENABLED) wireCodebookSplitHandle();
     wireControlsSplitHandle();
     wireColumnZoom();
     wireLabelerBox();
@@ -1812,6 +2037,7 @@ if (botMapLegend) {
     syncShortcutButtons();
     if (itemList) itemList.innerHTML = `<div class="empty">Loading…</div>`;
     await loadCodebookConfig();
+    await loadConversationCodeOptions();
     await loadBotLabels();
     await loadFilters();
     await loadList();
@@ -1820,14 +2046,16 @@ if (botMapLegend) {
       selectedId = deepLinkId;
       await loadDetail(deepLinkId);
     }
-    if (window.initCodebook) {
+    if (CODEBOOK_UI_ENABLED && window.initCodebook) {
       initCodebook("#codebookMount", { onToggle: setCodebookOpen, defaultOpen: true });
+      window.addEventListener("codebook-changed", (e) => {
+        applyCodebookConfig(e.detail || {});
+        if (groupByBot) renderBotMap();
+        if (selectedId) loadDetail(selectedId);
+      });
+    } else {
+      setCodebookOpen(false);
     }
-    window.addEventListener("codebook-changed", (e) => {
-      applyCodebookConfig(e.detail || {});
-      if (groupByBot) renderBotMap();
-      if (selectedId) loadDetail(selectedId);
-    });
     // Show cached data immediately; sync Google Sheet in the background.
     refreshSpreadsheet({ silent: true });
   } catch (err) {

@@ -66,21 +66,32 @@ body {
 
 .labeler-box {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
   margin-left: auto;
 }
 
-.labeler-box label {
+.labeler-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.labeler-box label,
+.labeler-identity > label {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
-.labeler-box input {
-  width: 140px;
+.labeler-box input,
+.labeler-identity > input {
+  width: 168px;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 7px 10px;
@@ -89,7 +100,8 @@ body {
   background: white;
 }
 
-.labeler-box input:focus {
+.labeler-box input:focus,
+.labeler-identity > input:focus {
   outline: 2px solid #bfdbfe;
   border-color: #93c5fd;
 }
@@ -104,6 +116,7 @@ body {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .labeler-confirm:hover {
@@ -123,6 +136,62 @@ body {
 
 .labeler-status.blocked {
   color: #b45309;
+}
+
+.label-level-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.label-level-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.label-level-opts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.label-level-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 0.75rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.label-level-opt:has(input:checked) {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.label-level-opt input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: #2563eb;
 }
 
 .topbar-row-controls {
@@ -2630,6 +2699,139 @@ body.is-labeler #codingFilter {
   font-size: 0.82rem;
   padding: 0 8px;
   max-width: 180px;
+}
+
+.conv-defect-section {
+  margin-bottom: 18px;
+}
+
+.conv-defect-section .section-head {
+  align-items: baseline;
+  gap: 10px;
+}
+
+.conv-defect-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.conv-defect-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.conv-defect-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 10px 12px;
+}
+
+.conv-defect-primary {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.conv-defect-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.conv-defect-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 0.78rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.conv-defect-chip:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.conv-defect-chip.is-on {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.conv-defect-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.conv-defect-chip:has(input:disabled) {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.conv-defect-id {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.conv-defect-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.conv-defect-chip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  min-width: 220px;
+  max-width: min(360px, 70vw);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 400;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.conv-defect-chip:hover::after,
+.conv-defect-chip:focus-within::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.conv-defect-summary {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.conv-defect-summary strong {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .meta-grid {

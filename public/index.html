@@ -26,16 +26,35 @@
           <a class="view-tab" href="/testing_behavior">Testing behavior</a>
         </nav>
         <div class="labeler-box">
-          <label for="labelerNameInput">Labeler</label>
-          <input
-            id="labelerNameInput"
-            type="text"
-            placeholder="ruiwei / jiayi"
-            autocomplete="username"
-            spellcheck="false"
-          />
-          <button type="button" class="labeler-confirm" id="labelerConfirmBtn">Confirm</button>
-          <span class="labeler-status" id="labelerStatus">View only</span>
+          <div class="labeler-identity">
+            <label for="labelerNameInput">Labeler</label>
+            <input
+              id="labelerNameInput"
+              type="text"
+              placeholder="naacl_label1 / naacl_label2"
+              autocomplete="username"
+              spellcheck="false"
+            />
+            <button type="button" class="labeler-confirm" id="labelerConfirmBtn">Confirm</button>
+            <span class="labeler-status" id="labelerStatus">View only</span>
+          </div>
+          <div class="label-level-box" id="labelLevelBox" role="group" aria-label="Label level">
+            <span class="label-level-title">Label level</span>
+            <div class="label-level-opts">
+              <label class="label-level-opt" title="Conversation-level codes">
+                <input type="checkbox" value="conversation" checked />
+                <span>conversation</span>
+              </label>
+              <label class="label-level-opt" title="Message-level codes">
+                <input type="checkbox" value="message" />
+                <span>message</span>
+              </label>
+              <label class="label-level-opt" title="Bot-level codes">
+                <input type="checkbox" value="bot" />
+                <span>bot</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -94,7 +113,6 @@
             <button id="needsAttentionBtn" class="chip-btn" type="button" title="Only flagged conversations">Needs attention</button>
             <button id="disagreedBtn" class="chip-btn" type="button" title="Only bots where the two coders disagree on a message">Disagreed</button>
             <button id="syncSheetBtn" class="chip-btn" type="button" title="Pull latest data from Google Sheet">Sync sheet</button>
-            <span id="codebookMount"></span>
           </div>
         </section>
       </div>
@@ -148,33 +166,9 @@
         </div>
       </main>
 
-      <div class="split-handle codebook-split-handle" id="codebookSplitHandle" hidden title="Drag to resize codebook"></div>
-
-      <aside class="codebook-panel" id="codebookPane" hidden aria-label="Codebook">
-        <header class="codebook-head">
-          <div>
-            <h2 id="codebookTitle">Codebook</h2>
-            <p class="codebook-sub">Edit either pane — changes sync and save automatically</p>
-          </div>
-          <div class="codebook-head-actions">
-            <div class="codebook-zoom" title="Text size (⌘/Ctrl + scroll in codebook)">
-              <button type="button" class="zoom-btn" id="codebookZoomOut" aria-label="Smaller text">−</button>
-              <span class="codebook-zoom-label" id="codebookZoomLabel">100%</span>
-              <button type="button" class="zoom-btn" id="codebookZoomIn" aria-label="Larger text">+</button>
-              <button type="button" class="zoom-fit" id="codebookZoomReset" title="Reset text size">Reset</button>
-            </div>
-            <span class="codebook-save-status" id="codebookSaveStatus"></span>
-            <button type="button" class="codebook-close" id="codebookCloseBtn" aria-label="Close codebook">×</button>
-          </div>
-        </header>
-        <div class="codebook-body" id="codebookBody">
-          <div class="empty">Open codebook to load…</div>
-        </div>
-      </aside>
     </div>
   </div>
 
-  <script src="/codebook.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

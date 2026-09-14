@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 LABELS_PATH = ROOT / "data" / "bot_labels.json"
 TMP_LABELS_PATH = Path("/tmp/playlab_bot_labels.json")
 
-ALLOWED_EDITORS = {"ruiwei", "jiayi"}
+ALLOWED_EDITORS = {"naacl_label1", "naacl_label2"}
 
 BOT_LABEL_CODES = [
     "Iterative refinement",
@@ -131,7 +131,7 @@ def set_bot_label(bot_title: str, code: str, editor: str) -> dict[str, Any]:
 
     editor_norm = _normalize_editor(editor)
     if editor_norm not in ALLOWED_EDITORS:
-        raise PermissionError("Only ruiwei or jiayi can edit bot labels")
+        raise PermissionError("Only naacl_label1 or naacl_label2 can edit bot labels")
 
     code = (code or "").strip()
     allowed = set(_allowed_bot_codes()) | set(BOT_LABEL_CODES)

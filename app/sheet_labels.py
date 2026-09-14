@@ -20,6 +20,8 @@ DEFAULT_SHEET_ID = "1xNPMlwkfviJk2GuDdrVZHnBTOF2LILGSoKQo5IxDGaQ"
 DEFAULT_SHEET_TAB = "all_data_origin"
 
 LABEL_COLUMNS = {
+    "naacl_label1": ("naacl_label1_labeling", "naacl_label1_rationale"),
+    "naacl_label2": ("naacl_label2_labeling", "naacl_label2_rationale"),
     "ruiwei": ("ruiwei_labeling", "ruiwei_rationale"),
     "jiayi": ("jiayi_labeling", "jiayi_rationale"),
 }

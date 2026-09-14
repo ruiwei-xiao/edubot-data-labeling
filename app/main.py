@@ -22,6 +22,7 @@ from app.codebook import (
 from app.ai_labeling import preview_labeling, run_labeling_batch
 from app import testing_behavior as tb
 from app.conversation_labels import (
+    conversation_code_options,
     list_conversation_labels,
     load_conversation_labels,
     set_conversation_label,
@@ -122,7 +123,9 @@ class TestingBehaviorRun(BaseModel):
 
 class ConversationLabelUpdate(BaseModel):
     code: str = Field(default="")
+    codes: list[str] = Field(default_factory=list)
     editor: str = Field(default="")
+    title: str = Field(default="")
 
 
 @app.on_event("startup")
@@ -377,7 +380,13 @@ async def get_conversation_labels():
 @app.put("/api/conversation-labels/{conv_id}")
 async def put_conversation_label(conv_id: str, body: ConversationLabelUpdate):
     try:
-        return set_conversation_label(conv_id, body.code, body.editor)
+        return set_conversation_label(
+            conv_id,
+            editor=body.editor,
+            code=body.code,
+            codes=body.codes,
+            title=body.title,
+        )
     except PermissionError as err:
         raise HTTPException(status_code=403, detail=str(err)) from err
     except ValueError as err:
@@ -543,10 +552,10 @@ async def conversation_detail(
     payload["disagreed_messages"] = sorted(details, key=lambda m: int(m) if m.isdigit() else 0)
     payload["disagreement_details"] = details
     from app.conversation_labels import get_conversation_label as _get_conv_label
-    from app.codebook import active_conversation_codes
 
-    payload["conversation_label"] = _get_conv_label(conv_id)
-    payload["conversation_codes"] = active_conversation_codes()
+    payload["conversation_label"] = _get_conv_label(conv_id, editor=(editor or "").strip().lower())
+    payload["conversation_codes"] = [opt["id"] for opt in conversation_code_options()]
+    payload["conversation_code_options"] = conversation_code_options()
     return payload
 
 
