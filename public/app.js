@@ -283,9 +283,10 @@ async function refreshSpreadsheet({ silent = false } = {}) {
 
 function updateListCountLabel() {
   if (!listCount) return;
-  const n = items.length;
-  const bots = new Set(items.map((i) => i.title)).size;
-  const msgs = items.reduce((sum, i) => {
+  const visible = visibleConversations(items);
+  const n = visible.length;
+  const bots = new Set(visible.map((i) => i.title)).size;
+  const msgs = visible.reduce((sum, i) => {
     if (disagreedOnly) return sum + (Number(i.disagreed_count) || 0);
     return sum + (Number(i.message_count) || 0);
   }, 0);
@@ -325,17 +326,23 @@ async function loadList() {
   const data = await res.json();
 
   items = data.conversations || [];
+  const visible = visibleConversations(items);
   updateListCountLabel();
 
-  if (!items.length) {
-    itemList.innerHTML = `<div class="empty">No items match these filters</div>`;
+  if (!visible.length) {
+    itemList.innerHTML = `<div class="empty">${
+      isConversationOnlyLabelMode()
+        ? "No sample anonymous conversations match these filters"
+        : "No items match these filters"
+    }</div>`;
     selectedId = null;
+    if (groupByBot) renderBotMap();
     renderEmptyDetail();
     return;
   }
 
-  if (!selectedId || !items.find((a) => a.id === selectedId)) {
-    selectedId = items[0].id;
+  if (!selectedId || !visible.find((a) => a.id === selectedId)) {
+    selectedId = visible[0].id;
   }
 
   renderList();
@@ -449,6 +456,29 @@ function labelLevelEnabled(level) {
   return labelLevels.has(level);
 }
 
+function isConversationOnlyLabelMode() {
+  return (
+    labelLevelEnabled("conversation") &&
+    !labelLevelEnabled("message") &&
+    !labelLevelEnabled("bot")
+  );
+}
+
+function isAnonymousConversation(c) {
+  if (!c || c.is_builder) return false;
+  return !!(c.is_anonymous || c.user === "Anonymous" || c.user_raw === "Anonymous");
+}
+
+function isSampleAnonConversation(c) {
+  return !!(c && c.is_sample && isAnonymousConversation(c));
+}
+
+/** Conversation-only labeling: keep sample anonymous; leave message/bot modes unfiltered. */
+function visibleConversations(list = items) {
+  if (!isConversationOnlyLabelMode()) return list;
+  return (list || []).filter(isSampleAnonConversation);
+}
+
 function syncLabelLevelUi() {
   const box = document.getElementById("labelLevelBox");
   if (!box) return;
@@ -462,8 +492,14 @@ function syncLabelLevelUi() {
 
 async function applyLabelLevelFilter() {
   syncLabelLevelUi();
-  if (groupByBot) renderBotMap();
+  const visible = visibleConversations(items);
+  if (selectedId && !visible.find((c) => String(c.id) === String(selectedId))) {
+    selectedId = visible[0]?.id || null;
+  }
+  updateListCountLabel();
+  renderList();
   if (selectedId) await loadDetail(selectedId);
+  else renderEmptyDetail();
 }
 
 function wireLabelLevelBox() {
@@ -729,7 +765,7 @@ function setBotSort(key) {
 }
 
 function renderBotMap() {
-  const visibleItems = items.filter((c) => audienceFilter[conversationAudience(c)]);
+  const visibleItems = visibleConversations(items).filter((c) => audienceFilter[conversationAudience(c)]);
   const groups = new Map();
   visibleItems.forEach((c) => {
     const key = c.title || "Untitled";
@@ -1110,7 +1146,16 @@ function renderList() {
     return;
   }
 
-  const listItems = sortByTime ? sortConversationsByTime(items, "asc") : items;
+  const source = visibleConversations(items);
+  if (!source.length) {
+    itemList.innerHTML = `<div class="empty">${
+      isConversationOnlyLabelMode()
+        ? "No sample anonymous conversations match these filters"
+        : "No items match these filters"
+    }</div>`;
+    return;
+  }
+  const listItems = sortByTime ? sortConversationsByTime(source, "asc") : source;
   itemList.innerHTML = listItems.map(conversationItemHtml).join("");
 
   itemList.querySelectorAll(".activity-item").forEach((el) => {
