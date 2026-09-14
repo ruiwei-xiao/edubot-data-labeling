@@ -29,6 +29,23 @@ let USER_MSG_FLAGS = ["iterative"];
 const ALLOWED_LABELERS = new Set(["naacl_label1", "naacl_label2"]);
 const LABELER_KEY = "playlab_labeler_name";
 const LABEL_LEVELS_KEY = "playlab_label_levels_v3";
+const CONV_DEFECT_FLOAT_KEY = "playlab_conv_defect_float";
+const CONV_DEFECT_FLOAT_POS_KEY = "playlab_conv_defect_float_pos";
+let convDefectFloat = localStorage.getItem(CONV_DEFECT_FLOAT_KEY) === "1";
+let convDefectFloatPos = (() => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CONV_DEFECT_FLOAT_POS_KEY) || "null");
+    if (raw && Number.isFinite(raw.x) && Number.isFinite(raw.y)) {
+      return {
+        x: raw.x,
+        y: raw.y,
+        w: Number.isFinite(raw.w) ? raw.w : null,
+        h: Number.isFinite(raw.h) ? raw.h : null,
+      };
+    }
+  } catch {}
+  return null;
+})();
 const ALL_LABEL_LEVELS = ["conversation", "message", "bot"];
 const LABELS_LOCAL_KEY = "playlab_bot_labels_cache";
 const MSG_LABELS_LOCAL_KEY = "playlab_message_labels_cache";
@@ -1816,15 +1833,32 @@ function conversationDefectPanelHtml(convId) {
     ? "Multi-select · hover a code for its definition"
     : "Enter naacl_label1/2 at top right to edit · hover for definitions";
 
-  return `<section class="section conv-defect-section" id="convDefectSection" data-conv="${escapeHtml(
+  const floatCls = convDefectFloat ? " is-floating" : "";
+  const floatLabel = convDefectFloat ? "Dock" : "Float";
+  return `<section class="section conv-defect-section${floatCls}" id="convDefectSection" data-conv="${escapeHtml(
     String(convId)
   )}">
-    <div class="section-head">
+    <div class="section-head conv-defect-drag-handle" title="${convDefectFloat ? "Drag to move" : ""}">
       <h3>Conversation labels</h3>
-      <span class="conv-defect-hint">${hint}</span>
+      <div class="conv-defect-head-actions">
+        <span class="conv-defect-hint">${hint}</span>
+        <button type="button" class="chip-btn conv-defect-float-btn" id="convDefectFloatBtn" title="${
+          convDefectFloat ? "Dock panel back into the page" : "Pop out as a floating draggable panel"
+        }">${floatLabel}</button>
+      </div>
     </div>
     <div class="conv-defect-body">${groupsHtml}</div>
     <div class="conv-defect-summary" id="convDefectSummary">${summary}</div>
+    <div class="conv-defect-resize-handles" aria-hidden="true">
+      <span class="conv-defect-resize n" data-resize="n"></span>
+      <span class="conv-defect-resize s" data-resize="s"></span>
+      <span class="conv-defect-resize e" data-resize="e"></span>
+      <span class="conv-defect-resize w" data-resize="w"></span>
+      <span class="conv-defect-resize ne" data-resize="ne"></span>
+      <span class="conv-defect-resize nw" data-resize="nw"></span>
+      <span class="conv-defect-resize se" data-resize="se"></span>
+      <span class="conv-defect-resize sw" data-resize="sw"></span>
+    </div>
   </section>`;
 }
 
@@ -1851,6 +1885,187 @@ async function saveConversationCodes(convId, codes) {
   conversationLabels[convId] = row;
   return row;
 }
+
+
+
+function saveConvDefectFloatPos() {
+  if (!convDefectFloatPos) return;
+  localStorage.setItem(CONV_DEFECT_FLOAT_POS_KEY, JSON.stringify(convDefectFloatPos));
+}
+
+function clampConvDefectFloatBox(box) {
+  const minW = 280;
+  const minH = 180;
+  const maxW = Math.max(minW, window.innerWidth - 16);
+  const maxH = Math.max(minH, window.innerHeight - 16);
+  let { x, y, w, h } = box;
+  w = Math.min(Math.max(minW, Number(w) || minW), maxW);
+  h = Math.min(Math.max(minH, Number(h) || minH), maxH);
+  x = Math.min(Math.max(8, Number(x) || 8), window.innerWidth - 40);
+  y = Math.min(Math.max(8, Number(y) || 8), window.innerHeight - 40);
+  if (x + w > window.innerWidth - 8) x = Math.max(8, window.innerWidth - 8 - w);
+  if (y + h > window.innerHeight - 8) y = Math.max(8, window.innerHeight - 8 - h);
+  return { x, y, w, h };
+}
+
+function applyConvDefectFloat(section, on) {
+  if (!section) return;
+  const btn = section.querySelector("#convDefectFloatBtn");
+  section.classList.toggle("is-floating", on);
+  if (btn) {
+    btn.textContent = on ? "Dock" : "Float";
+    btn.title = on ? "Dock panel back into the page" : "Pop out as a floating draggable panel";
+  }
+  const handle = section.querySelector(".conv-defect-drag-handle");
+  if (handle) handle.title = on ? "Drag to move · drag edges to resize" : "";
+
+  if (!on) {
+    section.style.left = "";
+    section.style.top = "";
+    section.style.width = "";
+    section.style.height = "";
+    section.style.maxHeight = "";
+    return;
+  }
+
+  const rect = section.getBoundingClientRect();
+  const defaultW = Math.min(520, Math.max(320, window.innerWidth * 0.42));
+  const defaultH = Math.min(window.innerHeight - 24, Math.max(280, rect.height || 420));
+  let box = {
+    x: convDefectFloatPos?.x ?? Math.max(12, rect.left),
+    y: convDefectFloatPos?.y ?? Math.max(12, rect.top),
+    w: convDefectFloatPos?.w || defaultW,
+    h: convDefectFloatPos?.h || defaultH,
+  };
+  box = clampConvDefectFloatBox(box);
+  convDefectFloatPos = box;
+  saveConvDefectFloatPos();
+  section.style.left = `${box.x}px`;
+  section.style.top = `${box.y}px`;
+  section.style.width = `${box.w}px`;
+  section.style.height = `${box.h}px`;
+  section.style.maxHeight = `${box.h}px`;
+}
+
+function wireConvDefectFloat(section) {
+  if (!section || section.dataset.floatWired) return;
+  section.dataset.floatWired = "1";
+
+  const btn = section.querySelector("#convDefectFloatBtn");
+  btn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    convDefectFloat = !convDefectFloat;
+    localStorage.setItem(CONV_DEFECT_FLOAT_KEY, convDefectFloat ? "1" : "0");
+    if (convDefectFloat && !convDefectFloatPos) {
+      const rect = section.getBoundingClientRect();
+      convDefectFloatPos = {
+        x: Math.max(12, rect.left),
+        y: Math.max(12, rect.top),
+        w: Math.max(320, rect.width),
+        h: Math.max(280, rect.height),
+      };
+      saveConvDefectFloatPos();
+    }
+    applyConvDefectFloat(section, convDefectFloat);
+  });
+
+  const handle = section.querySelector(".conv-defect-drag-handle");
+  handle?.addEventListener("pointerdown", (e) => {
+    if (!convDefectFloat || !section.classList.contains("is-floating")) return;
+    if (e.target.closest("button, a, input, label, select, textarea")) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const rect = section.getBoundingClientRect();
+    const origX = rect.left;
+    const origY = rect.top;
+    section.classList.add("is-dragging");
+    handle.setPointerCapture?.(e.pointerId);
+
+    const onMove = (ev) => {
+      const x = origX + (ev.clientX - startX);
+      const y = origY + (ev.clientY - startY);
+      const maxX = window.innerWidth - 80;
+      const maxY = window.innerHeight - 40;
+      const nx = Math.min(Math.max(8, x), maxX);
+      const ny = Math.min(Math.max(8, y), maxY);
+      section.style.left = `${nx}px`;
+      section.style.top = `${ny}px`;
+      const w = convDefectFloatPos?.w || section.offsetWidth;
+      const h = convDefectFloatPos?.h || section.offsetHeight;
+      convDefectFloatPos = { x: nx, y: ny, w, h };
+    };
+    const onUp = (ev) => {
+      section.classList.remove("is-dragging");
+      saveConvDefectFloatPos();
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      try {
+        handle.releasePointerCapture?.(ev.pointerId);
+      } catch {}
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  });
+
+  section.querySelectorAll(".conv-defect-resize").forEach((edge) => {
+    edge.addEventListener("pointerdown", (e) => {
+      if (!convDefectFloat || !section.classList.contains("is-floating")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const dir = edge.dataset.resize || "";
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const start = section.getBoundingClientRect();
+      section.classList.add("is-resizing");
+      edge.setPointerCapture?.(e.pointerId);
+
+      const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        let x = start.left;
+        let y = start.top;
+        let w = start.width;
+        let h = start.height;
+        if (dir.includes("e")) w = start.width + dx;
+        if (dir.includes("s")) h = start.height + dy;
+        if (dir.includes("w")) {
+          w = start.width - dx;
+          x = start.left + dx;
+        }
+        if (dir.includes("n")) {
+          h = start.height - dy;
+          y = start.top + dy;
+        }
+        let box = clampConvDefectFloatBox({ x, y, w, h });
+        if (dir.includes("w")) box.x = start.right - box.w;
+        if (dir.includes("n")) box.y = start.bottom - box.h;
+        box = clampConvDefectFloatBox(box);
+        section.style.left = `${box.x}px`;
+        section.style.top = `${box.y}px`;
+        section.style.width = `${box.w}px`;
+        section.style.height = `${box.h}px`;
+        section.style.maxHeight = `${box.h}px`;
+        convDefectFloatPos = box;
+      };
+      const onUp = (ev) => {
+        section.classList.remove("is-resizing");
+        saveConvDefectFloatPos();
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        try {
+          edge.releasePointerCapture?.(ev.pointerId);
+        } catch {}
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+  });
+
+  if (convDefectFloat) applyConvDefectFloat(section, true);
+}
+
 
 function wireConversationLabelControl(convId) {
   const section = document.getElementById("convDefectSection");
@@ -1890,6 +2105,8 @@ function wireConversationLabelControl(convId) {
       syncUi(row.codes || []);
     });
   });
+
+  wireConvDefectFloat(section);
 }
 
 function wireMessageRoleFilter() {

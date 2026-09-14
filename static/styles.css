@@ -2702,18 +2702,126 @@ body.is-labeler #codingFilter {
 }
 
 .conv-defect-section {
-  margin-bottom: 18px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: #f8fbff;
 }
 
 .conv-defect-section .section-head {
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
+  justify-content: space-between;
+}
+
+.conv-defect-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .conv-defect-hint {
   font-size: 0.75rem;
   color: var(--muted);
   font-weight: 400;
+}
+
+.conv-defect-float-btn {
+  flex: 0 0 auto;
+}
+
+.conv-defect-section.is-floating {
+  position: fixed;
+  z-index: 1200;
+  margin: 0;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+  border-color: #93c5fd;
+  background: #fff;
+}
+
+.conv-defect-section.is-floating .conv-defect-drag-handle {
+  cursor: grab;
+  user-select: none;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.conv-defect-section.is-floating.is-dragging .conv-defect-drag-handle {
+  cursor: grabbing;
+}
+
+.conv-defect-section.is-floating .conv-defect-body {
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.conv-defect-section.is-floating .conv-defect-summary {
+  flex: 0 0 auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.conv-defect-resize-handles {
+  display: none;
+}
+
+.conv-defect-section.is-floating .conv-defect-resize-handles {
+  display: block;
+}
+
+.conv-defect-resize {
+  position: absolute;
+  z-index: 2;
+  background: transparent;
+}
+
+.conv-defect-resize.n,
+.conv-defect-resize.s {
+  left: 10px;
+  right: 10px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.conv-defect-resize.e,
+.conv-defect-resize.w {
+  top: 10px;
+  bottom: 10px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.conv-defect-resize.n { top: -2px; }
+.conv-defect-resize.s { bottom: -2px; }
+.conv-defect-resize.e { right: -2px; }
+.conv-defect-resize.w { left: -2px; }
+
+.conv-defect-resize.ne,
+.conv-defect-resize.nw,
+.conv-defect-resize.se,
+.conv-defect-resize.sw {
+  width: 14px;
+  height: 14px;
+}
+
+.conv-defect-resize.ne { top: -2px; right: -2px; cursor: nesw-resize; }
+.conv-defect-resize.nw { top: -2px; left: -2px; cursor: nwse-resize; }
+.conv-defect-resize.se { bottom: -2px; right: -2px; cursor: nwse-resize; }
+.conv-defect-resize.sw { bottom: -2px; left: -2px; cursor: nesw-resize; }
+
+.conv-defect-section.is-floating.is-resizing {
+  user-select: none;
 }
 
 .conv-defect-body {
