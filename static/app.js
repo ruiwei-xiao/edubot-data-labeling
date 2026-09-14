@@ -473,10 +473,17 @@ function isSampleAnonConversation(c) {
   return !!(c && c.is_sample && isAnonymousConversation(c));
 }
 
-/** Conversation-only labeling: keep sample anonymous; leave message/bot modes unfiltered. */
+/** Keep half of sample-anon chats (stable): conv_id % 20 === 1. */
+function isHalfSampleAnonConversation(c) {
+  if (!isSampleAnonConversation(c)) return false;
+  const id = Number(c.id);
+  return Number.isFinite(id) && id % 20 === 1;
+}
+
+/** Conversation-only labeling: keep half of sample anonymous; leave message/bot modes unfiltered. */
 function visibleConversations(list = items) {
   if (!isConversationOnlyLabelMode()) return list;
-  return (list || []).filter(isSampleAnonConversation);
+  return (list || []).filter(isHalfSampleAnonConversation);
 }
 
 function syncLabelLevelUi() {
