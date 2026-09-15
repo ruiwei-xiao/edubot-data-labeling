@@ -41,19 +41,19 @@ CONVERSATION_DEFECT_CODES: list[dict[str, str]] = [
     },
     {
         "id": "F5",
-        "primary": "Factual (scope)",
+        "primary": "Factual",
         "label": "Guardrail breach",
         "definition": "The bot performs an action the system prompt explicitly forbids.",
     },
     {
         "id": "F6",
-        "primary": "Factual (scope)",
+        "primary": "Factual",
         "label": "Off-task drift",
         "definition": "The bot follows the student away from the bot's stated purpose and does not redirect.",
     },
     {
         "id": "F7",
-        "primary": "Factual (scope)",
+        "primary": "Factual",
         "label": "Over-refusal",
         "definition": "The bot refuses or deflects an in-scope request by misapplying a guardrail.",
     },
@@ -104,6 +104,12 @@ CONVERSATION_DEFECT_CODES: list[dict[str, str]] = [
         "primary": "Workflow",
         "label": "Language or format mismatch",
         "definition": "The bot responds in a language or output format that contradicts the system prompt or the student's input.",
+    },
+    {
+        "id": "W9",
+        "primary": "Workflow",
+        "label": "No expectation setup",
+        "definition": "At the start of the conversation, the bot does not tell the student what it can do or what to expect, so the student has no clear sense of its capabilities or scope.",
     },
     {
         "id": "D1",
