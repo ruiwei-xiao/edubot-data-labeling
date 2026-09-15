@@ -150,7 +150,7 @@ CONVERSATION_DEFECT_CODES: list[dict[str, str]] = [
     {
         "id": "P2",
         "primary": "Pedagogical",
-        "label": "Over-scaffolding (too late)",
+        "label": "Over-scaffolding (too many rounds)",
         "definition": "The bot keeps asking guiding questions when the student is clearly stuck or the question is factual/logistical, withholding information unproductively.",
     },
     {
