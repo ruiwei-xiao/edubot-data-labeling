@@ -604,12 +604,14 @@ function syncLabelerStatus() {
   }
 }
 
-function confirmLabeler() {
+async function confirmLabeler() {
   const name = labelerName();
   localStorage.setItem(LABELER_KEY, name);
   labelerConfirmed = !!name;
   localStorage.setItem(`${LABELER_KEY}_confirmed`, labelerConfirmed ? "1" : "0");
   syncLabelerStatus();
+  // Reload conversation labels for this editor so green coded borders restore.
+  await loadConversationCodeOptions();
   refreshLabelerUi();
 }
 
@@ -1331,7 +1333,9 @@ function ensureConversationCodeOptions() {
 
 async function loadConversationCodeOptions() {
   try {
-    const res = await fetch("/api/conversation-labels");
+    const ed = labelerName();
+    const qs = ed ? `?editor=${encodeURIComponent(ed)}` : "";
+    const res = await fetch(`/api/conversation-labels${qs}`);
     if (!res.ok) return;
     const data = await res.json();
     if (Array.isArray(data.code_options) && data.code_options.length) {
@@ -1341,8 +1345,10 @@ async function loadConversationCodeOptions() {
       conversationCodes = data.codes.slice();
     }
     if (data.labels && typeof data.labels === "object") {
+      conversationLabels = {};
       Object.entries(data.labels).forEach(([cid, row]) => {
         conversationLabels[cid] = normalizeConversationLabel(row);
+        conversationLabels[String(cid)] = conversationLabels[cid];
       });
     }
   } catch {
@@ -1784,16 +1790,43 @@ function renderConversationDetail(c) {
 
 function normalizeConversationLabel(row) {
   if (!row || typeof row !== "object") return { codes: [], code: "", updated_by: "", updated_at: "" };
-  const codes = Array.isArray(row.codes)
+  let codes = Array.isArray(row.codes)
     ? row.codes.map((c) => String(c || "").trim()).filter(Boolean)
     : [];
+  let updatedBy = row.updated_by || "";
+  let updatedAt = row.updated_at || "";
   const single = String(row.code || "").trim();
   if (single && !codes.includes(single)) codes.unshift(single);
+
+  // API may return per-editor map under `by` without a flat codes array.
+  if ((!codes.length && !updatedAt) && row.by && typeof row.by === "object") {
+    const prefer = labelerName().trim().toLowerCase();
+    const entries = Object.entries(row.by)
+      .filter(([, sub]) => sub && typeof sub === "object")
+      .map(([ed, sub]) => ({ ed, sub }));
+    let best = prefer ? entries.find((e) => e.ed === prefer) : null;
+    if (!best) {
+      best = entries.sort((a, b) =>
+        String(b.sub.updated_at || "").localeCompare(String(a.sub.updated_at || ""))
+      )[0];
+    }
+    if (best) {
+      const subCodes = Array.isArray(best.sub.codes)
+        ? best.sub.codes.map((c) => String(c || "").trim()).filter(Boolean)
+        : [];
+      const subSingle = String(best.sub.code || "").trim();
+      if (subSingle && !subCodes.includes(subSingle)) subCodes.unshift(subSingle);
+      codes = subCodes;
+      updatedBy = best.sub.updated_by || best.ed || updatedBy;
+      updatedAt = best.sub.updated_at || updatedAt;
+    }
+  }
+
   return {
     codes,
     code: codes[0] || "",
-    updated_by: row.updated_by || "",
-    updated_at: row.updated_at || "",
+    updated_by: updatedBy,
+    updated_at: updatedAt,
   };
 }
 

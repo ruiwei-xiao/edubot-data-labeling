@@ -196,6 +196,7 @@ _ALLOWED_IDS = set(_CODE_ORDER)
 
 _labels: dict[str, dict[str, Any]] = {}
 _loaded = False
+_sheet_hydrated = False
 
 
 def _now_iso() -> str:
@@ -216,6 +217,26 @@ def conversation_code_options() -> list[dict[str, str]]:
 
 def active_conversation_codes() -> list[str]:
     return [row["id"] for row in CONVERSATION_DEFECT_CODES]
+
+
+def _merge_conv_records(
+    base: dict[str, dict[str, Any]],
+    incoming: dict[str, dict[str, Any]],
+) -> None:
+    for cid, row in (incoming or {}).items():
+        if not cid or not isinstance(row, dict):
+            continue
+        record = _normalize_conv_record(row)
+        prev = base.get(cid)
+        if not prev:
+            base[cid] = record
+            continue
+        by = dict(prev.get("by") or {})
+        for ed, sub in (record.get("by") or {}).items():
+            old = by.get(ed)
+            if not old or (sub.get("updated_at") or "") >= (old.get("updated_at") or ""):
+                by[ed] = sub
+        base[cid] = {"by": by}
 
 
 def _normalize_codes(raw: Any, fallback_code: str = "") -> list[str]:
@@ -316,23 +337,28 @@ def _write_file(path: Path, labels: dict[str, dict[str, Any]]) -> bool:
 
 
 def load_conversation_labels(force: bool = False) -> dict[str, dict[str, Any]]:
-    global _labels, _loaded
+    global _labels, _loaded, _sheet_hydrated
     if _loaded and not force:
         return _labels
     merged: dict[str, dict[str, Any]] = {}
     for path in (LABELS_PATH, TMP_LABELS_PATH):
-        for cid, row in _read_file(path).items():
-            prev = merged.get(cid)
-            if not prev:
-                merged[cid] = row
-                continue
-            # Merge per-editor maps, keep newer timestamp per editor
-            by = dict((prev.get("by") or {}))
-            for ed, sub in (row.get("by") or {}).items():
-                old = by.get(ed)
-                if not old or (sub.get("updated_at") or "") >= (old.get("updated_at") or ""):
-                    by[ed] = sub
-            merged[cid] = {"by": by}
+        _merge_conv_records(merged, _read_file(path))
+
+    # Vercel /tmp is ephemeral: always hydrate from Google Sheet so Submit
+    # state (green borders) survives refresh / cold start.
+    if force or not _sheet_hydrated:
+        try:
+            from app.conversation_sheet_labels import try_fetch_conversation_labels_from_sheet
+
+            sheet_labels = try_fetch_conversation_labels_from_sheet()
+            if sheet_labels:
+                _merge_conv_records(merged, sheet_labels)
+                # Best-effort local cache for subsequent warm requests / local dev.
+                _write_file(TMP_LABELS_PATH, merged)
+            _sheet_hydrated = True
+        except Exception:  # noqa: BLE001
+            pass
+
     _labels = merged
     _loaded = True
     return _labels

@@ -208,6 +208,62 @@ def write_conversation_label_to_sheet(
     }
 
 
+def _parse_codes_cell(raw: Any) -> list[str]:
+    text = str(raw or "").strip()
+    if not text:
+        return []
+    out: list[str] = []
+    for part in text.replace(";", ",").split(","):
+        code = part.strip()
+        if code and code not in out:
+            out.append(code)
+    return out
+
+
+def fetch_conversation_labels_from_sheet() -> dict[str, dict[str, Any]]:
+    """Return {conv_id: {by: {editor: {codes, code, updated_by, updated_at}}}} from the Sheet."""
+    if not credentials_available():
+        return {}
+
+    ws = _open_worksheet()
+    values = ws.get_all_values()
+    if not values:
+        return {}
+    headers = [h.strip() for h in values[0]]
+    if "conv_id" not in headers:
+        return {}
+
+    out: dict[str, dict[str, Any]] = {}
+    for row in values[1:]:
+        cells = {headers[i]: (row[i] if i < len(row) else "") for i in range(len(headers))}
+        cid = str(cells.get("conv_id") or "").strip()
+        if not cid or not cid.isdigit():
+            continue
+        by: dict[str, dict[str, Any]] = {}
+        for editor in EDITORS:
+            codes = _parse_codes_cell(cells.get(f"{editor}_codes"))
+            updated_at = str(cells.get(f"{editor}_updated_at") or "").strip()
+            if not codes and not updated_at:
+                continue
+            by[editor] = {
+                "codes": codes,
+                "code": codes[0] if codes else "",
+                "updated_by": editor,
+                "updated_at": updated_at,
+            }
+        if by:
+            out[cid] = {"by": by}
+    return out
+
+
+def try_fetch_conversation_labels_from_sheet() -> dict[str, dict[str, Any]]:
+    try:
+        return fetch_conversation_labels_from_sheet()
+    except Exception:  # noqa: BLE001 - best-effort hydrate
+        logger.exception("Failed to fetch conversation labels from Google Sheet")
+        return {}
+
+
 def try_write_conversation_label_to_sheet(*args: Any, **kwargs: Any) -> dict[str, Any]:
     try:
         return write_conversation_label_to_sheet(*args, **kwargs)

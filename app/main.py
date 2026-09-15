@@ -373,8 +373,8 @@ async def testing_behavior_export(fmt: str = Query(default="json")):
 
 
 @app.get("/api/conversation-labels")
-async def get_conversation_labels():
-    return list_conversation_labels()
+async def get_conversation_labels(editor: Optional[str] = Query(default=None)):
+    return list_conversation_labels(editor or "")
 
 
 @app.put("/api/conversation-labels/{conv_id}")
