@@ -174,8 +174,8 @@ CONVERSATION_DEFECT_CODES: list[dict[str, str]] = [
     {
         "id": "P5",
         "primary": "Pedagogical",
-        "label": "No engagement opportunity",
-        "definition": "The bot explains passively with no questions, prompts, or openings for the student to act.",
+        "label": "Insufficient cognitive engagement",
+        "definition": "The student shows little substantive engagement—e.g., mostly short acknowledgments like \"yes\" / \"ok\" / \"sure\"—without meaningful reasoning, attempts, or elaboration.",
     },
     {
         "id": "P6",
