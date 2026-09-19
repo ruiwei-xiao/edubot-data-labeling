@@ -138,7 +138,7 @@ const RICH_HTML_TAGS = new Set([
 ]);
 
 function looksLikeRichHtml(text) {
-  return /<(?:span|p|math|h[1-4]|ul|ol|table|div|svg)\b/i.test(text || "");
+  return /<\/?(?:span|p|br|hr|strong|em|b|i|u|ul|ol|li|blockquote|h[1-4]|table|thead|tbody|tr|th|td|div|svg|math|sub|sup)\b/i.test(text || "");
 }
 
 function sanitizeRichHtml(html) {
