@@ -346,14 +346,14 @@ async function loadList() {
   const visible = visibleConversations(items);
   // Recompute sample red/green using conversation labels when in conversation-only mode.
   (items || []).forEach((c) => {
-    if (c?.is_sample) c.is_coded = conversationFullyCoded(c.id);
+    if (tracksCodingStatus(c)) c.is_coded = conversationFullyCoded(c.id);
   });
   updateListCountLabel();
 
   if (!visible.length) {
     itemList.innerHTML = `<div class="empty">${
       isConversationOnlyLabelMode()
-        ? "No sample anonymous conversations match these filters"
+        ? "No sample or extra anonymous conversations match these filters"
         : "No items match these filters"
     }</div>`;
     selectedId = null;
@@ -370,8 +370,12 @@ async function loadList() {
   await loadDetail(selectedId);
 }
 
+function tracksCodingStatus(c) {
+  return !!(c && (c.is_sample || c.is_anon_draw));
+}
+
 function sampleCodingClass(c) {
-  if (!canEditBotLabels() || !c?.is_sample) return "";
+  if (!canEditBotLabels() || !tracksCodingStatus(c)) return "";
   return c.is_coded ? "sample-coded" : "sample-uncoded";
 }
 
@@ -388,6 +392,7 @@ function conversationItemHtml(c) {
           <div class="user-name">${escapeHtml(groupByBot ? c.title : c.user)}</div>
         </div>
         <div class="item-meta">
+          ${c.is_anon_draw ? `<span class="tag sample-tag">Anon sample</span>` : ""}
           ${c.is_sample && canEditBotLabels() ? `<span class="tag sample-tag">Sample</span>` : ""}
           ${c.is_builder ? `<span class="tag">Builder</span>` : ""}
           ${c.has_flagged ? `<span class="tag" style="background:#fef2f2;color:#b91c1c">Flagged</span>` : ""}
@@ -413,8 +418,8 @@ function sortConversationsByTime(list, dir = "desc") {
 
 function botCardHtml(c) {
   const audience = conversationAudience(c);
-  const tip = `${c.user} · ${c.date} · ${c.message_count} msgs${c.is_sample ? " · sample" : ""}${
-    c.is_sample ? (c.is_coded ? " · coded" : " · not coded") : ""
+  const tip = `${c.user} · ${c.date} · ${c.message_count} msgs${c.is_anon_draw ? " · anon sample" : ""}${c.is_sample ? " · sample" : ""}${
+    tracksCodingStatus(c) ? (c.is_coded ? " · coded" : " · not coded") : ""
   }`;
   return `
     <button class="bot-card aud-${audience} ${sampleCodingClass(c)} ${
@@ -490,21 +495,21 @@ function isAnonymousConversation(c) {
   return !!(c.is_anonymous || c.user === "Anonymous" || c.user_raw === "Anonymous");
 }
 
-function isSampleAnonConversation(c) {
-  return !!(c && c.is_sample && isAnonymousConversation(c));
+function isAnonDrawConversation(c) {
+  return !!(c && c.is_anon_draw);
 }
 
-/** Keep half of sample-anon chats (stable): conv_id % 20 === 1. */
+/** Prior conversation-only set: sample anonymous chats with conv_id % 20 === 1. */
 function isHalfSampleAnonConversation(c) {
-  if (!isSampleAnonConversation(c)) return false;
+  if (!isAnonymousConversation(c) || !c.is_sample) return false;
   const id = Number(c.id);
   return Number.isFinite(id) && id % 20 === 1;
 }
 
-/** Conversation-only labeling: keep half of sample anonymous; leave message/bot modes unfiltered. */
+/** Conversation-only labeling: prior sample plus 20 new anonymous chats. */
 function visibleConversations(list = items) {
   if (!isConversationOnlyLabelMode()) return list;
-  return (list || []).filter(isHalfSampleAnonConversation);
+  return (list || []).filter((c) => isHalfSampleAnonConversation(c) || isAnonDrawConversation(c));
 }
 
 function syncLabelLevelUi() {
@@ -1181,7 +1186,7 @@ function renderList() {
   if (!source.length) {
     itemList.innerHTML = `<div class="empty">${
       isConversationOnlyLabelMode()
-        ? "No sample anonymous conversations match these filters"
+        ? "No sample or extra anonymous conversations match these filters"
         : "No items match these filters"
     }</div>`;
     return;
@@ -1577,7 +1582,7 @@ function syncConversationCodedFlag(convId) {
   const item = items.find((c) => String(c.id) === String(convId));
   const coded = conversationFullyCoded(convId);
   if (item) item.is_coded = coded;
-  const showSample = canEditBotLabels() && !!item?.is_sample;
+  const showSample = canEditBotLabels() && tracksCodingStatus(item);
   document.querySelectorAll(`[data-id="${CSS.escape(String(convId))}"]`).forEach((el) => {
     el.classList.toggle("sample-coded", showSample && coded);
     el.classList.toggle("sample-uncoded", showSample && !coded);
@@ -1586,7 +1591,7 @@ function syncConversationCodedFlag(convId) {
 
 function refreshAllConversationCodedFlags() {
   (items || []).forEach((c) => {
-    if (c?.is_sample) syncConversationCodedFlag(c.id);
+    if (tracksCodingStatus(c)) syncConversationCodedFlag(c.id);
   });
 }
 

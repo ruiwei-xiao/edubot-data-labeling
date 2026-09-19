@@ -439,6 +439,12 @@ def get_conversation(conv_id: str) -> Optional[dict[str, Any]]:
     return None
 
 
+def _is_anon_draw(conv_id: str) -> bool:
+    from app.anon_sample import is_anon_draw
+
+    return is_anon_draw(conv_id)
+
+
 def conversation_list_item(
     conv: dict[str, Any],
     coded_ids: Optional[set[str]] = None,
@@ -466,6 +472,7 @@ def conversation_list_item(
         "has_flagged": conv["has_flagged"],
         "flagged_count": conv["flagged_count"],
         "is_sample": is_sample_conversation(cid),
+        "is_anon_draw": _is_anon_draw(cid),
         "is_coded": conversation_is_coded(conv, ids, editor=editor),
         "coding_editor": (editor or "").strip().lower(),
     }
