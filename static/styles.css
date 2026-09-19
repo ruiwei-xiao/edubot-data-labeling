@@ -3430,6 +3430,38 @@ body.is-labeler #codingFilter {
   word-break: break-word;
 }
 
+.bubble-body.is-html {
+  white-space: normal;
+}
+
+.bubble-body.is-html .katex-display {
+  margin: 0.55em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.bubble-body.is-html .katex {
+  font-size: 1.05em;
+}
+
+.bubble-body.is-html p {
+  margin: 0.45em 0;
+}
+
+.bubble-body.is-html h1,
+.bubble-body.is-html h2,
+.bubble-body.is-html h3,
+.bubble-body.is-html h4 {
+  margin: 0.7em 0 0.3em;
+  font-size: 1em;
+  line-height: 1.35;
+}
+
+.bubble-body.is-html ul,
+.bubble-body.is-html ol {
+  margin: 0.35em 0 0.35em 1.2em;
+}
+
 .prompt-collapsed {
   max-height: 180px;
   overflow: hidden;

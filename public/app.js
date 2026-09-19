@@ -128,6 +128,365 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+const RICH_HTML_TAGS = new Set([
+  "p", "br", "hr", "strong", "em", "b", "i", "u", "ul", "ol", "li", "blockquote",
+  "h1", "h2", "h3", "h4", "code", "pre", "sub", "sup", "table", "thead", "tbody", "tr", "th", "td",
+  "span", "div", "svg", "path",
+  "math", "semantics", "mrow", "mi", "mo", "mn", "mtext", "msub", "msup", "msubsup", "mfrac",
+  "mstyle", "menclose", "mover", "munder", "munderover", "msqrt", "mroot", "mspace", "annotation",
+  "mtable", "mtr", "mtd", "mpadded", "mmultiscripts", "mprescripts", "none",
+]);
+
+function looksLikeRichHtml(text) {
+  return /<(?:span|p|math|h[1-4]|ul|ol|table|div|svg)\b/i.test(text || "");
+}
+
+function sanitizeRichHtml(html) {
+  const root = document.createElement("div");
+  root.innerHTML = html;
+  const scrub = (el) => {
+    let child = el.firstChild;
+    while (child) {
+      if (child.nodeType === Node.COMMENT_NODE) {
+        const drop = child;
+        child = child.nextSibling;
+        drop.remove();
+        continue;
+      }
+      if (child.nodeType !== Node.ELEMENT_NODE) {
+        child = child.nextSibling;
+        continue;
+      }
+      const tag = child.tagName.toLowerCase();
+      if (!RICH_HTML_TAGS.has(tag)) {
+        const moved = [...child.childNodes];
+        const after = child.nextSibling;
+        child.replaceWith(...moved);
+        child = moved[0] || after;
+        continue;
+      }
+      [...child.attributes].forEach((attr) => {
+        const name = attr.name.toLowerCase();
+        const value = attr.value || "";
+        const keep =
+          name === "class" ||
+          name === "xmlns" ||
+          name === "display" ||
+          name === "encoding" ||
+          name === "aria-hidden" ||
+          name === "style" ||
+          (tag === "svg" && ["viewbox", "width", "height", "fill", "stroke"].includes(name)) ||
+          (tag === "path" && ["d", "fill", "stroke"].includes(name));
+        if (!keep || name.startsWith("on") || /javascript:|expression\s*\(|url\s*\(/i.test(value)) {
+          child.removeAttribute(attr.name);
+        }
+      });
+      scrub(child);
+      child = child.nextSibling;
+    }
+  };
+  scrub(root);
+  return root.innerHTML;
+}
+
+function looksLikeMathDump(text) {
+  return /\\[a-zA-Z]/.test(text || "") || /class="(?:katex|mord|mspace|mfrac)"/.test(text || "");
+}
+
+function messageBodyIsHtml(text) {
+  return looksLikeRichHtml(text) || looksLikeMathDump(text);
+}
+
+function normMathText(value) {
+  return [...(value || "")].filter((ch) => !"\u200b\u2061\u2009\u00a0 ".includes(ch)).join("");
+}
+
+function mathPrefixScore(a, b) {
+  const left = normMathText(a);
+  const right = normMathText(b);
+  let n = 0;
+  const limit = Math.min(left.length, right.length);
+  while (n < limit && left[n] === right[n]) n += 1;
+  return n;
+}
+
+function balancedLatex(tex) {
+  if (tex.includes("<") || tex.includes("\u200b") || tex.includes("\u2061")) return false;
+  let depth = 0;
+  for (let i = 0; i < tex.length; i += 1) {
+    if (tex[i] === "\\") {
+      i += 1;
+      continue;
+    }
+    if (tex[i] === "{") depth += 1;
+    else if (tex[i] === "}") {
+      depth -= 1;
+      if (depth < 0) return false;
+    }
+  }
+  return depth === 0;
+}
+
+function isMathToken(tok, allowWords) {
+  if (!tok) return true;
+  if (/[\\_^{}]/.test(tok)) return true;
+  if (/^-?[0-9.]+,?$/.test(tok)) return true;
+  if (/^[=+\-*/(),.;:|≈><?×−]+$/.test(tok)) return true;
+  if (/^[A-Za-z]$/.test(tok)) return true;
+  if (/^[|∣][^|∣]+[|∣]$/.test(tok)) return true;
+  if (allowWords && /^[A-Za-z]{2,16}$/.test(tok)) return true;
+  return false;
+}
+
+function latexOk(tex) {
+  if (!/[\\_^]/.test(tex) || !balancedLatex(tex)) return false;
+  const allowWords = /\\(?:text|mathrm|operatorname|textbf|textit|mbox)/.test(tex);
+  const parts = tex.split(/\s+/).filter(Boolean);
+  return parts.length > 0 && parts.every((tok) => isMathToken(tok, allowWords));
+}
+
+function copy3End(line, end) {
+  const rest = line.slice(end);
+  if (/^[A-Za-z0-9]{0,12}<span\b/.test(rest)) return line.length;
+  let b = end;
+  while (b < line.length && !" \t,".includes(line[b]) && line[b] !== "<") {
+    if (line[b] === "." && !/[0-9]/.test(line[b + 1] || "")) break;
+    if ("\\{_".includes(line[b])) return null;
+    b += 1;
+  }
+  if (b === end) return null;
+  return b;
+}
+
+function extractMathTriples(line) {
+  const n = line.length;
+  const cands = [];
+  if (!/[\\_^]/.test(line)) return [];
+  for (let start = 0; start < n; start += 1) {
+    if (!/[\\_^]/.test(line.slice(start))) break;
+    let k = start;
+    while (k > 0 && !" \t".includes(line[k - 1])) k -= 1;
+    const beforeMax = line.slice(k, start);
+    const suffixes = [];
+    for (let i = 0; i <= beforeMax.length; i += 1) {
+      const suf = beforeMax.slice(i);
+      if (suf && !/[\\_{}^]/.test(suf)) suffixes.push(suf);
+    }
+    if (!suffixes.length) continue;
+    const endLimit = Math.min(n, start + 220);
+    for (let end = start + 1; end <= endLimit; end += 1) {
+      const tex = line.slice(start, end);
+      if (!latexOk(tex)) continue;
+      const c3e = copy3End(line, end);
+      if (c3e == null) continue;
+      const afterVis = line.slice(end, c3e).replace(/<[^>]+>/g, "").slice(0, 80);
+      suffixes.forEach((suf) => {
+        const sc = mathPrefixScore(suf, afterVis);
+        const leftN = normMathText(suf);
+        const rightN = normMathText(afterVis);
+        const complete = sc > 0 && (sc === leftN.length || sc === rightN.length);
+        if (sc < 2 && !complete) return;
+        if (!afterVis.includes("\u200b") && !complete && Math.abs(leftN.length - rightN.length) > 4) return;
+        cands.push({
+          sc,
+          close: -Math.abs(normMathText(suf).length - normMathText(afterVis).length),
+          suf,
+          start,
+          end,
+          c3e,
+          tex,
+        });
+      });
+    }
+  }
+  cands.sort((a, b) => b.sc - a.sc || b.close - a.close || a.suf.length - b.suf.length);
+  const used = new Array(n).fill(false);
+  const chosen = [];
+  cands.forEach((cand) => {
+    const b0 = cand.start - cand.suf.length;
+    if (b0 < 0) return;
+    for (let i = b0; i < Math.min(cand.c3e, n); i += 1) {
+      if (used[i]) return;
+    }
+    for (let i = b0; i < Math.min(cand.c3e, n); i += 1) used[i] = true;
+    chosen.push({ b0, c3e: cand.c3e, tex: cand.tex });
+  });
+  chosen.sort((a, b) => a.b0 - b.b0);
+  return chosen;
+}
+
+function collapseTripleLetters(text) {
+  return text.replace(/(^|\s)([A-Za-z])\2\2(?=[\s,.;:])/g, "$1$2");
+}
+
+function decodeEntitiesOutsideTags(text) {
+  const map = { "&gt;": ">", "&lt;": "<", "&amp;": "&", "&nbsp;": "\u00a0", "&#39;": "'", "&quot;": '"' };
+  return text.replace(/(<[^>]*>)|(&gt;|&lt;|&amp;|&nbsp;|&#39;|&quot;)/g, (m, tag, ent) => (tag ? tag : map[ent] || m));
+}
+
+function katexAccepts(tex, display) {
+  if (!window.katex || typeof window.katex.renderToString !== "function") return false;
+  if (/[\u00a0\u2009\u200b]/.test(tex)) return false;
+  try {
+    window.katex.renderToString(tex, { throwOnError: true, strict: "ignore", displayMode: !!display });
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+function renderTex(tex, display) {
+  if (window.katex && typeof window.katex.renderToString === "function") {
+    try {
+      return window.katex.renderToString(tex, { throwOnError: false, displayMode: !!display });
+    } catch (err) {
+      return `<span class="math-fallback">${escapeHtml(tex)}</span>`;
+    }
+  }
+  return `<span class="math-fallback">${escapeHtml(tex)}</span>`;
+}
+
+function tryRenderWholeLine(line) {
+  const tex = line.trim();
+  if (!/\\[a-zA-Z]/.test(tex) || tex.includes("<")) return null;
+  const prose = tex.split(/\s+/).filter((word) => /^[A-Za-z]{4,}$/.test(word));
+  if (prose.length) return null;
+  if (!katexAccepts(tex, true)) return null;
+  return renderTex(tex, true);
+}
+
+function renderDollarMath(text) {
+  let next = text.replace(/\$\$[ \t]*(?:\n[ \t]*)+([^\n]+)/g, (m, line) => {
+    const tex = line.replace(/\u00a0/g, " ").trim();
+    if (!/\\[a-zA-Z]/.test(tex) || !katexAccepts(tex, true)) return m;
+    return "\n" + renderTex(tex, true);
+  });
+  next = next.replace(/\$\$([^\n$]+?)\$\$/g, (m, inner) => {
+    const tex = inner.replace(/\u00a0/g, " ").trim();
+    if (!tex || tex.length > 400 || !katexAccepts(tex, false)) return m;
+    return renderTex(tex, false);
+  });
+  return next;
+}
+
+function expandLatexEnd(line, start) {
+  let j = start;
+  let depth = 0;
+  while (j < line.length) {
+    const c = line[j];
+    if (c === "\\") {
+      j += 1;
+      if (j < line.length && /[a-zA-Z]/.test(line[j])) {
+        while (j < line.length && /[a-zA-Z]/.test(line[j])) j += 1;
+      } else if (j < line.length) j += 1;
+      continue;
+    }
+    if (c === "{") {
+      depth += 1;
+      j += 1;
+      continue;
+    }
+    if (c === "}") {
+      if (depth === 0) break;
+      depth -= 1;
+      j += 1;
+      continue;
+    }
+    if (depth > 0) {
+      j += 1;
+      continue;
+    }
+    if (/[A-Za-z0-9.^_=+\-*/()[\]<>|,.:? ]/.test(c)) {
+      j += 1;
+      continue;
+    }
+    break;
+  }
+  return j;
+}
+
+function renderLooseLatex(chunk) {
+  const outside = chunk.replace(/<[^>]*>/g, "");
+  if (looksLikeRichHtml(chunk) && !/\\[a-zA-Z]/.test(outside)) {
+    if (/^\s*</.test(chunk)) return chunk;
+    return chunk.replace(/([^<]+)|(<[^>]+>)/g, (m, text, tag) => (tag ? tag : escapeHtml(text)));
+  }
+  if (!/\\[a-zA-Z]/.test(outside)) return escapeHtml(collapseTripleLetters(chunk));
+  const whole = tryRenderWholeLine(chunk);
+  if (whole) return whole;
+  let html = "";
+  let i = 0;
+  while (i < chunk.length) {
+    const b = chunk.indexOf("\\", i);
+    if (b < 0 || !/[a-zA-Z]/.test(chunk[b + 1] || "")) {
+      html += escapeHtml(collapseTripleLetters(chunk.slice(i)));
+      break;
+    }
+    let best = null;
+    const origin = Math.max(i, b - 24);
+    for (let s = b; s >= origin; s -= 1) {
+      const prev = chunk[s - 1];
+      if (s < b && prev && prev.charCodeAt(0) > 127 && prev !== "\u00a0") break;
+      let e = Math.min(chunk.length, expandLatexEnd(chunk, s));
+      let guard = 0;
+      while (e > b && guard < 48) {
+        const tex = chunk.slice(s, e).trim();
+        if (katexAccepts(tex, false)) {
+          if (!best || e - s > best.e - best.s) best = { s, e, tex };
+          break;
+        }
+        e -= 1;
+        guard += 1;
+      }
+      if (best && best.s === s) break;
+    }
+    if (!best) {
+      html += escapeHtml(chunk.slice(i, b + 1));
+      i = b + 1;
+      continue;
+    }
+    html += escapeHtml(collapseTripleLetters(chunk.slice(i, best.s)));
+    html += renderTex(best.tex, false);
+    i = best.e;
+  }
+  return html;
+}
+
+function collapseMathLine(line) {
+  if (line.includes("katex-mathml") || /^\s*<span class="katex/.test(line)) {
+    const cut = line.indexOf("<");
+    const end = line.lastIndexOf(">");
+    if (cut < 0 || end < cut) return line;
+    return escapeHtml(line.slice(0, cut)) + line.slice(cut, end + 1) + escapeHtml(line.slice(end + 1));
+  }
+  const chosen = extractMathTriples(line);
+  if (!chosen.length) return renderLooseLatex(line);
+  let html = "";
+  let pos = 0;
+  const onlyFormula = chosen.length === 1 && !line.slice(0, chosen[0].b0).trim() && !line.slice(chosen[0].c3e).trim();
+  chosen.forEach((seg) => {
+    html += renderLooseLatex(line.slice(pos, seg.b0));
+    html += katexAccepts(seg.tex, onlyFormula) ? renderTex(seg.tex, onlyFormula) : renderLooseLatex(seg.tex);
+    pos = seg.c3e;
+  });
+  html += renderLooseLatex(line.slice(pos));
+  return html;
+}
+
+function collapseMathDump(text) {
+  let src = decodeEntitiesOutsideTags(text || "");
+  src = src.replace(/<[^>]*>/g, (tag) => tag.replace(/\n/g, " "));
+  src = renderDollarMath(src);
+  return src.split("\n").map(collapseMathLine).join("<br>");
+}
+
+function renderMessageBody(text) {
+  const raw = text || "";
+  if (looksLikeMathDump(raw)) return sanitizeRichHtml(collapseMathDump(raw));
+  if (!looksLikeRichHtml(raw)) return escapeHtml(raw);
+  return sanitizeRichHtml(raw);
+}
+
 function normalizeOptions(values) {
   return (values || []).map((v) =>
     typeof v === "string" ? { name: v, count: null } : { name: v.name, count: v.count }
@@ -1726,7 +2085,7 @@ function renderConversationDetail(c) {
             m.time_since ? ` · ${escapeHtml(m.time_since)}` : ""
           }</span>
         </div>
-        <div class="bubble-body">${escapeHtml(m.content || "")}</div>
+        <div class="bubble-body${messageBodyIsHtml(m.content || "") ? " is-html" : ""}">${renderMessageBody(m.content || "")}</div>
         ${isDisagreed ? disagreementDiffHtml(disagreementDetails[String(m.message_number)]) : ""}
         ${messageLabelControlsHtml(convId, m)}
       </div>`;
