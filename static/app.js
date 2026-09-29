@@ -849,6 +849,11 @@ function isConversationOnlyLabelMode() {
   );
 }
 
+/** True when message and/or bot labeling is on (conversation may also be on). */
+function isMessageOrBotLabelMode() {
+  return labelLevelEnabled("message") || labelLevelEnabled("bot");
+}
+
 function isAnonymousConversation(c) {
   if (!c || c.is_builder) return false;
   return !!(c.is_anonymous || c.user === "Anonymous" || c.user_raw === "Anonymous");
@@ -865,9 +870,12 @@ function isHalfSampleAnonConversation(c) {
   return Number.isFinite(id) && id % 20 === 1;
 }
 
-/** Conversation-only labeling: prior sample plus 20 new anonymous chats. */
+/**
+ * Conversation-only → half-sample (+ anon draw).
+ * Message and/or bot (with or without conversation) → full corpus.
+ */
 function visibleConversations(list = items) {
-  if (!isConversationOnlyLabelMode()) return list;
+  if (!isConversationOnlyLabelMode()) return list || [];
   return (list || []).filter((c) => isHalfSampleAnonConversation(c) || isAnonDrawConversation(c));
 }
 
@@ -882,8 +890,28 @@ function syncLabelLevelUi() {
   });
 }
 
+function resetCodingFilterToAll() {
+  if (!codingSelect || codingSelect.value === "All") return false;
+  codingSelect.value = "All";
+  const label = document.querySelector("#codingSelectWrap .count-select-label");
+  const count = document.querySelector("#codingSelectWrap .count-select-count");
+  if (label) label.textContent = "All";
+  if (count) count.textContent = "";
+  return true;
+}
+
 async function applyLabelLevelFilter() {
   syncLabelLevelUi();
+  // Message/bot modes need the full conversation list from the API. If Coding was
+  // Coded/Uncoded under conversation-only mode, `items` only contains samples —
+  // reset Coding and refetch so all bots/conversations appear.
+  if (isMessageOrBotLabelMode() || !labelLevelEnabled("conversation")) {
+    resetCodingFilterToAll();
+    await onFilterChanged();
+    if (selectedId) await loadDetail(selectedId);
+    else renderEmptyDetail();
+    return;
+  }
   const visible = visibleConversations(items);
   if (selectedId && !visible.find((c) => String(c.id) === String(selectedId))) {
     selectedId = visible[0]?.id || null;
